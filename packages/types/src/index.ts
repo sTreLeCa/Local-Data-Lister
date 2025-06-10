@@ -1,40 +1,43 @@
-// A. Basic Location Type
 export interface Location {
-  latitude: number;
-  longitude: number;
+  street?: string;          // Optional: For human-readable display
+  city?: string;            // Optional: For human-readable display
+  state?: string;           // Optional: For human-readable display
+  zipcode?: string;         // Optional
+  latitude: number;         // Core: For mapping & API use
+  longitude: number;        // Core: For mapping & API use
 }
 
-// B. Base interface with common fields for all local items
+// Base interface with common fields for all local items
 export interface BaseItem {
   id: string;
   name: string;
   description: string;
   location: Location;
-  rating: number; // A number from 1 to 5
+  rating?: number; // A number from 1 to 5, optional as not all items might have ratings
+  type: 'restaurant' | 'event' | 'park'; // Discriminator - CRUCIAL FOR TYPE NARROWING
 }
 
-// C. Specific item types that extend the BaseItem
+// Specific item types that extend the BaseItem
 
-// A Restaurant has a specific cuisine type
 export interface Restaurant extends BaseItem {
-  type: 'restaurant';
-  cuisine: string;
+  type: 'restaurant'; // Discriminator
+  cuisineType: string;  // From our original spec - e.g., "Italian", "Mexican"
+  priceRange?: string;   // e.g., "$", "$$", "$$$" - Optional
+  // 'rating' is inherited from BaseItem and is optional there
 }
 
-// An Event has a date and a ticket price
 export interface EventItem extends BaseItem {
-  type: 'event';
-  date: string; // ISO 8601 date string (e.g., "2024-12-25T18:00:00Z")
-  price: number; // Price in USD, 0 for free events
+  type: 'event'; // Discriminator
+  eventType: string;     // From our original spec - e.g., "Music Festival", "Sports Game"
+  eventDate: string;     // ISO 8601 date string (e.g., "2024-12-25T18:00:00Z") or "YYYY-MM-DD"
+  price?: number;        // Price in USD, 0 for free events - Optional
 }
 
-// A Park has a list of features
 export interface Park extends BaseItem {
-  type: 'park';
-  features: string[]; // e.g., ["playground", "picnic tables", "lake"]
+  type: 'park'; // Discriminator
+  parkType: string;      // From our original spec - e.g., "National Park", "City Park"
+  amenities?: string[];  // e.g., ["playground", "picnic tables", "lake"] - Optional
 }
 
-// D. A discriminated union type for any possible local item
-// This allows us to have an array of different item types and
-// still know exactly what fields are available on each one.
+// Discriminated union type for any possible local item
 export type LocalItem = Restaurant | EventItem | Park;

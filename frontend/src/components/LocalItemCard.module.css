@@ -1,0 +1,26 @@
+/* frontend/src/components/LocalItemCard.module.css */
+.card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background-color: #fff;
+  max-width: 600px; /* Example width, adjust as needed */
+}
+.name {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 1.5em; 
+  color: #333;
+}
+.infoItem {
+  font-size: 0.95em;
+  color: #555;
+  margin: 4px 0;
+}
+.description {
+  font-size: 0.9em;
+  color: #777;
+  margin-top: 10px;
+}
