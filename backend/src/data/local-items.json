@@ -1,0 +1,30 @@
+[
+  {
+    "id": "e4f2a1b0-1c9d-4e8a-9f3b-2c7d5e6a8b1c",
+    "type": "restaurant",
+    "name": "The Green Leaf Cafe",
+    "description": "A cozy cafe with organic coffee and vegan pastries.",
+    "location": { "latitude": 40.7128, "longitude": -74.0060 },
+    "rating": 4.5,
+    "cuisine": "Cafe"
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+    "type": "park",
+    "name": "Willow Creek Park",
+    "description": "A large park with a playground and walking trails.",
+    "location": { "latitude": 40.7306, "longitude": -73.9352 },
+    "rating": 4.8,
+    "features": ["playground", "walking trails", "pond"]
+  },
+  {
+    "id": "f0e1d2c3-b4a5-6789-0123-456789abcdef",
+    "type": "event",
+    "name": "Summer Music Fest",
+    "description": "Annual music festival featuring local bands. Runs through August.",
+    "location": { "latitude": 40.7484, "longitude": -73.9857 },
+    "rating": 4.2,
+    "date": "2024-08-15T18:00:00Z",
+    "price": 25.00
+  }
+]
