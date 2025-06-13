@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react'; // Added useMemo
+import { useEffect, useState, useMemo } from 'react'; 
 import './App.css'; 
-import type { LocalItem, Restaurant, Park, EventItem } from '@local-data/types'; 
+import type { LocalItem } from '@local-data/types';
 import LocalItemCard from './components/LocalItemCard';
+import { fetchLocalItems } from './services/localItemService';
 
-// --- MOCK DATA & FUNCTION - USING THE AGREED-UPON MERGED TYPE STRUCTURE ---
-// (Keep your existing comprehensive mockLocalItems array here as from the previous step)
 const mockLocalItems: LocalItem[] = [
   {
     id: "r1", name: "Luigi's Pizza Palace", type: "restaurant",
@@ -47,21 +46,28 @@ function App() {
   const [localItems, setLocalItems] = useState<LocalItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>(''); // P10.1: Add searchTerm state
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   useEffect(() => {
     const loadItems = async () => {
-      setIsLoading(true); setError(null);
+      setIsLoading(true);
+      setError(null);
       try {
-        const data = await mockFetchLocalItems(); 
+        // WHEN B-TASK 5 (frontend service) IS READY, REPLACE THIS: <--- ეს კომენტარიც წაშალე
+        const data = await fetchLocalItems(); // <--- გამოიყენე იმპორტირებული ფუნქცია
         setLocalItems(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        setLocalItems([]);
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('An unknown error occurred while fetching items.');
+        }
+        setLocalItems([]); // Clear items on error
       } finally {
         setIsLoading(false);
       }
     };
+
     loadItems();
   }, []);
 
