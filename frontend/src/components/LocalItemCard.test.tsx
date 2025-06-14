@@ -1,7 +1,7 @@
 // frontend/src/components/LocalItemCard.test.tsx
 import { render, screen } from '@testing-library/react';
 import LocalItemCard from './LocalItemCard';
-import type { Restaurant, Park, EventItem } from '@local-data/types'; // Or from '../types'
+import type { Restaurant } from '@local-data/types';
 import { describe, it, expect } from 'vitest'; // Explicitly import for clarity
 
 describe('<LocalItemCard />', () => {

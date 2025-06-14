@@ -1,5 +1,5 @@
 import React from 'react';
-import type { LocalItem, Restaurant, EventItem, Park } from '@local-data/types'; 
+import type { LocalItem} from '@local-data/types'; 
 import styles from './LocalItemCard.module.css';
 
 interface LocalItemCardProps {
