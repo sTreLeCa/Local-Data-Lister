@@ -6,7 +6,7 @@
     "description": "A cozy cafe with organic coffee and vegan pastries.",
     "location": { "latitude": 40.7128, "longitude": -74.0060 },
     "rating": 4.5,
-    "cuisine": "Cafe"
+    "cuisineType": "Cafe"
   },
   {
     "id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
@@ -15,7 +15,8 @@
     "description": "A large park with a playground and walking trails.",
     "location": { "latitude": 40.7306, "longitude": -73.9352 },
     "rating": 4.8,
-    "features": ["playground", "walking trails", "pond", "dog friendly"]
+    "parkType": "City Park",
+    "amenities": ["playground", "walking trails", "pond", "dog friendly"]
   },
   {
     "id": "f0e1d2c3-b4a5-6789-0123-456789abcdef",
@@ -24,7 +25,8 @@
     "description": "Annual music festival featuring local bands. Runs through August.",
     "location": { "latitude": 40.7484, "longitude": -73.9857 },
     "rating": 4.2,
-    "date": "2024-08-15T18:00:00Z",
+    "eventType": "Music Festival",
+    "eventDate": "2024-08-15T18:00:00Z",
     "price": 25.00
   },
   {
@@ -34,7 +36,7 @@
     "description": "Authentic Italian pizza with a wood-fired oven. Great for families.",
     "location": { "latitude": 40.7550, "longitude": -73.9990 },
     "rating": 4.9,
-    "cuisine": "Italian"
+    "cuisineType": "Italian"
   },
   {
     "id": "fedcba98-7654-3210-fedc-ba9876543210",
@@ -43,7 +45,8 @@
     "description": "Weekly market with fresh produce, local honey, and handmade crafts.",
     "location": { "latitude": 40.7128, "longitude": -74.0060 },
     "rating": 4.6,
-    "date": "2024-10-26T09:00:00Z",
+    "eventType": "Market",
+    "eventDate": "2024-10-26T09:00:00Z",
     "price": 0
   },
   {
@@ -53,6 +56,7 @@
     "description": "Beautiful botanical gardens along the river, perfect for a quiet stroll.",
     "location": { "latitude": 40.7796, "longitude": -73.9632 },
     "rating": 4.7,
-    "features": ["botanical gardens", "river view", "benches"]
+    "parkType": "Botanical Garden",
+    "amenities": ["botanical gardens", "river view", "benches"]
   }
 ]
