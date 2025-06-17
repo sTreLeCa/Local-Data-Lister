@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from 'react';
 import './App.css';
 import type { LocalItem } from '@local-data/types';
 import { LocalItemCard } from './components/LocalItemCard';
-// We now import both service functions
 import { fetchLocalItems, fetchExternalItems } from './services/localItemService';
 
 function App() {
@@ -12,28 +11,24 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // --- NEW STATE FOR ADVANCED STAGE (EXTERNAL API) ---
-  const [location, setLocation] = useState<string>('New York'); // Default location
-  const [externalQuery, setExternalQuery] = useState<string>('food'); // Default query
+  // --- STATE FOR ADVANCED STAGE (EXTERNAL API) ---
+  const [location, setLocation] = useState<string>('New York');
+  const [externalQuery, setExternalQuery] = useState<string>('food');
   const [externalItems, setExternalItems] = useState<LocalItem[]>([]);
   const [isExternalLoading, setIsExternalLoading] = useState<boolean>(false);
   const [externalError, setExternalError] = useState<string | null>(null);
-  // --- END OF NEW STATE ---
 
-  // This useEffect only runs once to load the initial simulated data
   useEffect(() => {
     const loadItems = async () => {
+      // ... (This logic remains unchanged)
       setIsLoading(true);
       setError(null);
       try {
         const data = await fetchLocalItems();
         setLocalItems(data);
       } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('An unknown error occurred while fetching items.');
-        }
+        if (err instanceof Error) { setError(err.message); } 
+        else { setError('An unknown error occurred while fetching items.'); }
         setLocalItems([]);
       } finally {
         setIsLoading(false);
@@ -42,7 +37,6 @@ function App() {
     loadItems();
   }, []);
 
-  // Filtering for the initial simulated data list
   const filteredLocalItems = useMemo(() => {
     // ... (This logic remains unchanged)
     if (!searchTerm.trim()) return localItems;
@@ -59,12 +53,14 @@ function App() {
     });
   }, [localItems, searchTerm]);
 
-  // --- NEW HANDLER FUNCTION FOR EXTERNAL SEARCH ---
+  // --- UPDATED HANDLER FUNCTION FOR EXTERNAL SEARCH ---
   const handleExternalSearch = async () => {
+    // **CHANGE 1: Immediately set loading state and clear old data/errors.**
     setIsExternalLoading(true);
-    setExternalError(null);
+    setExternalItems([]); // Clear previous results
+    setExternalError(null); // Clear previous errors
+
     try {
-      // Call our new (mocked) service function with the state values
       const data = await fetchExternalItems({ location, query: externalQuery });
       setExternalItems(data);
     } catch (err) {
@@ -73,18 +69,17 @@ function App() {
       } else {
         setExternalError('An unknown error occurred during external search.');
       }
-      setExternalItems([]);
+      // No need to setExternalItems([]) here, we already did it.
     } finally {
+      // **CHANGE 2: Just set loading to false in the finally block.**
       setIsExternalLoading(false);
     }
   };
-  // --- END OF NEW HANDLER ---
 
   return (
     <div className="App">
       <h1>Local Information Viewer</h1>
       
-      {/* --- NEW UI FOR ADVANCED STAGE SEARCH --- */}
       <div className="search-container">
         <h2>Search Real-World Data (via Mock API)</h2>
         <input
@@ -105,13 +100,13 @@ function App() {
           {isExternalLoading ? 'Searching...' : 'Search External Data'}
         </button>
       </div>
-      {/* --- END OF NEW UI --- */}
 
-      {/* --- NEW RESULTS DISPLAY FOR EXTERNAL DATA --- */}
+      {/* --- UPDATED RESULTS DISPLAY LOGIC --- */}
+      {/* **CHANGE 3: This whole block is now structured to only show one state at a time.** */}
       <div className="items-list-container">
         {isExternalLoading && <p>Loading external data...</p>}
         {externalError && <p style={{ color: 'red' }}>Error: {externalError}</p>}
-        {externalItems.length > 0 && (
+        {!isExternalLoading && !externalError && externalItems.length > 0 && (
           <>
             <h3>External Search Results</h3>
             {externalItems.map(item => (
@@ -120,37 +115,28 @@ function App() {
           </>
         )}
       </div>
-      {/* --- END OF NEW RESULTS DISPLAY --- */}
+      {/* --- END OF UPDATED RESULTS DISPLAY --- */}
 
       <hr style={{ margin: '40px 0' }} />
 
       {/* --- UI FOR INITIAL STAGE (SIMULATED DATA) --- */}
+      {/* ... (This entire section remains unchanged) ... */}
       <div className="search-container">
         <h2>Filter Simulated Local Data</h2>
         {!isLoading && !error && (
-          <input
-            type="text"
-            placeholder="Filter the list below..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
+          <input type="text" placeholder="Filter the list below..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
         )}
       </div>
-
       <div className="items-list-container">
         {isLoading && <p>Loading local items...</p>}
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
         {!isLoading && !error && filteredLocalItems.length > 0 && (
-          filteredLocalItems.map(item => (
-            <LocalItemCard key={item.id} item={item} />
-          ))
+          filteredLocalItems.map(item => <LocalItemCard key={item.id} item={item} />)
         )}
         {!isLoading && !error && localItems.length > 0 && filteredLocalItems.length === 0 && (
           <p>No simulated items match your filter.</p>
         )}
       </div>
-      {/* --- END OF INITIAL STAGE UI --- */}
     </div>
   );
 }
