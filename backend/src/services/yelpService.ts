@@ -1,6 +1,8 @@
 // backend/src/services/yelpService.ts
 import axios from 'axios';
 
+export interface YelpCategory { alias: string; title: string };
+
 // Type for the search parameters our service will accept
 export interface YelpSearchParameters {
   term?: string;         // e.g., "restaurants", "parks"
@@ -19,28 +21,28 @@ export interface YelpBusiness {
   id: string;
   alias: string;
   name: string;
-  image_url: string;
+  image_url: string | null; // Good, allows null
   is_closed: boolean;
-  url: string;
-  review_count: number;
-  categories: { alias: string; title: string }[];
-  rating: number;
+  url: string | null; // Good, allows null
+  review_count: number | null; // Made nullable
+  categories: { alias: string; title: string }[] | undefined; // Made nullable/undefined
+  rating: number | null; // UPDATED: Made nullable as requested
   coordinates: { latitude: number; longitude: number };
   transactions: string[];
-  price?: string; // e.g., "$", "$$", "$$$"
+  price?: string; // Optional string (e.g., "$", "$$", "$$$") - This is for price tier
   location: {
     address1: string | null;
     address2: string | null;
     address3: string | null;
-    city: string;
-    zip_code: string;
-    country: string;
-    state: string;
-    display_address: string[];
+    city: string | null;
+    zip_code: string | null;
+    country: string | null;
+    state: string | null; // Made nullable
+    display_address: string[]; // Required array of strings
   };
-  phone: string;
-  display_phone: string;
-  distance?: number; // Distance in meters from search location
+  phone: string | null; // Made nullable
+  display_phone: string | null; // Made nullable
+  distance?: number;
 }
 
 // Type for the raw Yelp API search response

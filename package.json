@@ -21,6 +21,10 @@
   },
   "homepage": "https://github.com/sTreLeCa/Local-Data-Lister#readme",
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@types/jest": "^30.0.0",
+    "concurrently": "^8.2.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.3"
   }
 }
