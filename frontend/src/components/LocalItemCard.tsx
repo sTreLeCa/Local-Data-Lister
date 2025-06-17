@@ -62,6 +62,9 @@ export const LocalItemCard: React.FC<LocalItemCardProps> = ({ item }) => {
         return _exhaustiveCheck;
     }
   };
+  
+  // --- NEW: Construct the Google Maps URL ---
+  const mapUrl = `https://www.google.com/maps?q=${item.location.latitude},${item.location.longitude}`;
 
   return (
     <div className={styles.card}>
@@ -70,7 +73,17 @@ export const LocalItemCard: React.FC<LocalItemCardProps> = ({ item }) => {
       <p className={styles.description}>{item.description}</p>
       {displayLocationString && <p className={styles.infoItem}>Location: {displayLocationString}</p>}
       {item.rating !== undefined && <p className={styles.infoItem}>Rating: {item.rating}/5</p>}
+      
+      {/* Renders all the correct, detailed type-specific info */}
       {renderTypeSpecificInfo()}
+
+      {/* --- NEW: The map link itself --- */}
+      {/* It only renders if we have latitude and longitude */}
+      {item.location.latitude && item.location.longitude && (
+        <a href={mapUrl} target="_blank" rel="noopener noreferrer" className={styles.mapLink}>
+          View on Map
+        </a>
+      )}
     </div>
   );
 };
