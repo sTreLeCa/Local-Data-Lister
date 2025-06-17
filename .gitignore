@@ -134,3 +134,16 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+
+# .gitignore (root of project)
+# ... other ignores ...
+
+# Environment variables
+.env
+*.env
+.env.*
+!/.env.example # if you have an example file
+
+# Specifically for backend if needed, though covered by above
+backend/.env
