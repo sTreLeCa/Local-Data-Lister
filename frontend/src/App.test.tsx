@@ -1,50 +1,64 @@
-// frontend/src/App.test.tsx
-/// <reference types="vitest" /> 
-// ^^^ Add this triple-slash directive at the TOP for 'vi' namespace
+/// <reference types="vitest" />
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import App from './App';
+import { fetchLocalItems } from './services/localItemService';
+import type { LocalItem, Restaurant, Park } from '@local-data/types';
 
-import { render, screen, waitFor } from '@testing-library/react';
-import App from './App'; // Assuming App.tsx is in the same directory (src/)
-import { describe, it, expect } from 'vitest'; // Explicitly import Vitest globals
+vi.mock('./services/localItemService', () => ({
+  fetchLocalItems: vi.fn(),
+}));
 
-// NO MOCKING of './services/localItemService' NEEDED HERE YET
-// because App.tsx is using its own internal mockFetchLocalItems
+const mockRestaurant: Restaurant = { id: "r1", name: "Luigi's Pizza Palace", type: "restaurant", location: { latitude: 40.7550, longitude: -73.9990 }, description: "Italian pizza.", cuisineType: "Italian", rating: 4.5 };
+const mockPark: Park = { id: "p1", name: "City Center Park", type: "park", location: { latitude: 40.7306, longitude: -73.9352 }, description: "A green space.", parkType: "City Park", amenities: ["playground"] };
+const allMockItems: LocalItem[] = [mockRestaurant, mockPark];
 
-describe('<App /> behavior with internal mock data', () => {
+describe('<App />', () => {
+  const mockedFetchLocalItems = vi.mocked(fetchLocalItems);
 
-  it('displays loading state initially, then renders mocked restaurants', async () => {
-    render(<App />);
-    
-    // Check for loading message
-    expect(screen.getByText(/Loading local items.../i)).toBeInTheDocument();
-
-    // Wait for loading to complete and items to appear.
-    // This test relies on the default behavior of mockFetchLocalItems in App.tsx,
-    // which should resolve with mockLocalItems.
-    await waitFor(() => {
-      // Check that loading text is gone
-      expect(screen.queryByText(/Loading local items.../i)).not.toBeInTheDocument();
-    }, { timeout: 2000 }); // Give it a bit more time if your mock has a delay
-
-    // Now check if some item names from your App.tsx's mockLocalItems are present.
-    // Update these names to match exactly what's in your App.tsx's mockLocalItems array.
-    expect(screen.getByText("Luigi's Pizza Palace")).toBeInTheDocument();
-    expect(screen.getByText("City Center Park")).toBeInTheDocument();
-    // Add more assertions for other items from your mockLocalItems if you want to be thorough
+  beforeEach(() => {
+    mockedFetchLocalItems.mockClear();
   });
 
-  // Placeholder for tests related to P9.3 (error/empty states) - to be fully automated later
-  // For now, these are manually verified by editing App.tsx's internal mockFetchLocalItems
-  it.todo('P9.3: manually verify error state display (when mockFetchLocalItems rejects)');
-  it.todo('P9.3: manually verify empty state display (when mockFetchLocalItems resolves with [])');
+  describe('Data Fetching States', () => {
+    it('should display a loading message initially', () => {
+      mockedFetchLocalItems.mockReturnValue(new Promise(() => {}));
+      render(<App />);
+      expect(screen.getByText(/Loading local items.../i)).toBeInTheDocument();
+    });
+    it('should display an error message if the fetch fails', async () => {
+      mockedFetchLocalItems.mockRejectedValue(new Error('Network failure'));
+      render(<App />);
+      expect(await screen.findByText(/Error: Network failure/i)).toBeInTheDocument();
+    });
+    it('should display the list of items on successful fetch', async () => {
+      mockedFetchLocalItems.mockResolvedValue(allMockItems);
+      render(<App />);
+      expect(await screen.findByText("Luigi's Pizza Palace")).toBeInTheDocument();
+      expect(screen.getByText("City Center Park")).toBeInTheDocument();
+    });
+  });
 
-
-  // Placeholder for P12.1 (Filtering tests) - you will add these next
-  describe('Filtering Logic (P12.1)', () => {
-    it.todo('filters restaurants by name');
-    it.todo('filters restaurants by cuisine type');
-    // ... more filtering tests ...
-    it.todo('shows "no results" message for non-matching search term');
-    it.todo('shows all restaurants when search term is cleared');
-    it.todo('filtering is case-insensitive');
+  describe('Client-side Filtering Logic', () => {
+    beforeEach(async () => {
+      mockedFetchLocalItems.mockResolvedValue(allMockItems);
+      render(<App />);
+      await screen.findByText("Luigi's Pizza Palace");
+    });
+    const getSearchInput = () => screen.getByPlaceholderText(/Search by name, description, location, type.../i);
+    it('filters items by name', async () => {
+      await userEvent.type(getSearchInput(), 'pizza');
+      expect(screen.getByText("Luigi's Pizza Palace")).toBeInTheDocument();
+      expect(screen.queryByText("City Center Park")).not.toBeInTheDocument();
+    });
+    it('shows all items again when search is cleared', async () => {
+      const searchInput = getSearchInput();
+      await userEvent.type(searchInput, 'pizza');
+      expect(screen.queryByText("City Center Park")).not.toBeInTheDocument();
+      await userEvent.clear(searchInput);
+      expect(screen.getByText("Luigi's Pizza Palace")).toBeInTheDocument();
+      expect(screen.getByText("City Center Park")).toBeInTheDocument();
+    });
   });
 });
