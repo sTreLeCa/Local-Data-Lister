@@ -34,3 +34,37 @@ export const fetchLocalItems = async (): Promise<LocalItem[]> => {
   const data: LocalItem[] = await response.json();
   return data;
 };
+
+export const fetchExternalItems = async (params: { location?: string; query?: string }): Promise<LocalItem[]> => {
+  console.log(`%c[MOCK] Fetching EXTERNAL items with params:`, 'color: orange', params);
+  
+  // This is your temporary "fake" backend.
+  // It returns a promise, just like a real fetch call.
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Create some realistic mock data that is DIFFERENT from your local-items.json
+      const mockExternalData: LocalItem[] = [
+        {
+          id: "yelp-1",
+          name: "Yelp's Fiery Tacos",
+          type: "restaurant",
+          description: "Tacos so good they came from a mock API.",
+          location: { city: params.location || 'San Francisco', latitude: 37.7749, longitude: -122.4194 },
+          cuisineType: "Mexican",
+          rating: 4.8
+        },
+        {
+          id: "yelp-2",
+          name: "API Park Adventure",
+          type: "park",
+          description: "A virtual park with zero bugs.",
+          location: { city: params.location || 'San Francisco', latitude: 37.7749, longitude: -122.4194 },
+          parkType: "National Park",
+          amenities: ["virtual trees", "pixelated benches"]
+        }
+      ];
+      console.log(`%c[MOCK] Responding with:`, 'color: orange', mockExternalData);
+      resolve(mockExternalData);
+    }, 1200); // Simulate a slightly longer network delay
+  });
+};
