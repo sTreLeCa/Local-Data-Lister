@@ -3,6 +3,18 @@ import axios from 'axios';
 
 export interface YelpCategory { alias: string; title: string };
 
+// Yelp API error response types
+export interface YelpError {
+  code: string;
+  description: string;
+  field?: string;
+  instance?: string;
+}
+
+export interface YelpErrorResponse {
+  error: YelpError;
+}
+
 // Type for the search parameters our service will accept
 export interface YelpSearchParameters {
   term?: string;         // e.g., "restaurants", "parks"
@@ -96,9 +108,10 @@ export const searchYelp = async (params: YelpSearchParameters): Promise<YelpSear
     });
     return response.data; // This is the raw API response
   } catch (error: any) {
-    if (error.response) {
+    if (axios.isAxiosError(error) && error.response) {
       // The request was made and the server responded with a status code
       console.error('Error calling Yelp API:', error.response.status, error.response.data);
+      // Throw an error that includes the status and the JSON data from Yelp's error response
       throw new Error(`Yelp API request failed with status ${error.response.status}: ${JSON.stringify(error.response.data)}`);
     } else if (error.request) {
       // The request was made but no response was received
