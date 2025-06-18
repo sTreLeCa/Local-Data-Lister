@@ -90,13 +90,10 @@ app.get('/api/local-items', async (req: Request, res: Response) => {
       });
     }
     
-    // Validate that items is an array
+    // --- ADDED FINAL CHECK ---
     if (!Array.isArray(items)) {
-      console.error('[API /api/local-items] Local items data is not an array');
-      return res.status(500).json({
-        message: 'Invalid data format: expected array.',
-        code: 'INVALID_DATA_FORMAT'
-      });
+      console.error("CRITICAL BACKEND ERROR: local-items.json did not parse to an array. Parsed value:", items);
+      return res.status(500).json({ message: "Data source is corrupt." });
     }
     
     console.log(`[API /api/local-items] Successfully returned ${items.length} local items`);
@@ -104,8 +101,9 @@ app.get('/api/local-items', async (req: Request, res: Response) => {
     
   } catch (error) {
     console.error('[API /api/local-items] Unexpected error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({
-      message: 'Error fetching local items data.',
+      message: `Server error: ${errorMessage}`,
       code: 'DATA_READ_ERROR'
     });
   }
