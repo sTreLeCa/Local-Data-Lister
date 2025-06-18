@@ -1,280 +1,209 @@
 // backend/src/services/dataTransformer.ts
 import { LocalItem, Restaurant, Park, Event, Location as LocalItemLocation } from '@local-data/types';
-import { YelpBusiness } from './yelpService';
-// Removed YelpCategory import as YelpBusiness.categories directly defines the structure.
-// Removed uuidv4 import as we are using Yelp's ID directly for LocalItem's id for simplicity.
-// If you need unique IDs separate from Yelp's, you can re-add: import { v4 as uuidv4 } from 'uuid';
+import { FoursquarePlace, FoursquareSearchResponse } from './foursquareService';
+
+// Category IDs from Foursquare. You can find more here: https://location.foursquare.com/developer/reference/place-categories
+const FOOD_RELATED_IDS = [
+  13000, // All food
+];
+
+const PARK_RELATED_IDS = [
+  16032, // Park
+  16019, // Garden
+  16009, // Dog Park
+  16033, // Playground
+  16003, // Beach
+];
+
+const EVENT_VENUE_IDS = [
+  10027, // Music Venue
+  10005, // Concert Hall
+  10055, // Stadium
+  10009, // Comedy Club
+  10032, // Nightclub
+];
+
+// Define the photo type explicitly to avoid TypeScript inference issues
+interface FoursquarePhoto {
+  prefix: string;
+  suffix: string;
+}
 
 /**
- * Transforms Yelp location data into our LocalItem location format.
- * @param yelpBusiness - The Yelp business object containing location data
+ * Transforms Foursquare location data into our LocalItem location format.
+ * @param place - The Foursquare place object containing location data
  * @returns A LocalItemLocation object with standardized location fields
  */
-const transformYelpLocation = (yelpBusiness: YelpBusiness): LocalItemLocation => {
-  const { coordinates, location: yelpLocation } = yelpBusiness;
+const transformFoursquareLocation = (place: FoursquarePlace): LocalItemLocation => {
   return {
-    latitude: coordinates.latitude,
-    longitude: coordinates.longitude,
-    street: yelpLocation.address1 || undefined,
-    city: yelpLocation.city || undefined,
-    state: yelpLocation.state || undefined,
-    zipcode: yelpLocation.zip_code || undefined,
+    latitude: place.geocodes.main.latitude,
+    longitude: place.geocodes.main.longitude,
+    street: place.location.address,
+    city: place.location.locality,
+    state: place.location.region,
+    zipcode: place.location.postcode,
   };
 };
 
 /**
- * Food-related category aliases for classification.
+ * Determines the type of LocalItem based on Foursquare category IDs.
  * 
- * NOTE: This list may need expansion for better coverage of food establishments.
- * For a comprehensive list of Yelp categories, refer to:
- * https://docs.developer.yelp.com/docs/resources-category-list
+ * This function uses Foursquare's hierarchical category system to classify places.
+ * Category IDs are hierarchical (e.g., 13065 (Italian Restaurant) is under 13000 (Food)).
  * 
- * Consider adding more specific cuisines and food types as needed for your use case.
+ * @param place - The Foursquare place object containing category data
+ * @returns Object containing the determined type and primary category name
  */
-const FOOD_RELATED_ALIASES = [
-  'restaurants', 'food', 'bars', 'cafes', 'bakeries', 'desserts', 'pubs',
-  'pizza', 'italian', 'mexican', 'chinese', 'japanese', 'sushi', 'thai', 'indian',
-  'burgers', 'sandwiches', 'icecream', 'donuts', 'coffee', 'tea',
-  'bagels', 'belgian', 'brasseries', 'breakfast_brunch', 'buffets', 'caribbean',
-  'diners', 'delis', 'fastfood', 'fishnchips', 'french', 'german', 'gluten_free',
-  'greek', 'halal', 'hawaiian', 'korean', 'mediterranean', 'noodles', 'pancakes',
-  'salad', 'seafood', 'soulfood', 'soup', 'spanish', 'steak', 'tapas', 'vegan',
-  'vegetarian', 'vietnamese', 'wraps'
-];
-
-/**
- * Park and outdoor recreation-related category aliases for classification.
- * 
- * NOTE: This list may need expansion to cover more outdoor recreation venues.
- * Consider adding regional or specialized park types based on your target locations.
- * Refer to Yelp's category documentation for additional outdoor/recreation categories.
- */
-const PARK_RELATED_ALIASES = [
-  'parks', 'gardens', 'beaches', 'playgrounds', 'dogparks', 'hiking', 'naturecenters',
-  'lakes', 'picnicsites', 'skate_parks', 'zoos', 'botanical_gardens', 'arboretums'
-];
-
-/**
- * Event venue and entertainment-related category aliases for classification.
- * 
- * NOTE: This list focuses on venues that host events rather than specific events.
- * Consider expanding to include more entertainment venues, cultural centers, etc.
- * Some categories like 'wineries' and 'breweries' are included as they often host events.
- */
-const EVENT_VENUE_RELATED_ALIASES = [
-  'eventvenues', 'musicvenues', 'stadiumsarenas', 'theater', 'galleries', 'movietheaters',
-  'comedyclubs', 'danceclubs', 'festivals', 'venues', 'eventplanning', 'partybusrentals',
-  'performingarts', 'social_clubs', 'wineries', 'breweries' // Wineries/Breweries can host events
-];
-
-/**
- * Determines the type of LocalItem and extracts type-specific data based on Yelp categories.
- * 
- * This function uses exact alias matching to classify businesses into Restaurant, Park, Event, or Unknown types.
- * The classification is hierarchical: Event venues are checked first, then Parks, then Restaurants.
- * 
- * @param yelpCategories - Array of category objects from Yelp business data (may be undefined)
- * @returns Object containing the determined type and type-specific data
- * 
- * @limitations
- * - Event startDate is set to current date as a placeholder since Yelp doesn't provide event scheduling data
- * - Classification depends on predefined alias lists which may not cover all possible Yelp categories
- * - Unknown type is returned when no matching categories are found
- */
-const determineItemTypeAndSpecifics = (
-  yelpCategories: YelpBusiness['categories'] | undefined
-): { type: 'Restaurant' | 'Park' | 'Event' | 'Unknown'; specifics: Partial<Restaurant | Park | Event> } => {
-  if (!yelpCategories || yelpCategories.length === 0) {
-    return { type: 'Unknown', specifics: {} };
+function getFoursquareCategoryType(place: FoursquarePlace): { 
+  type: 'Restaurant' | 'Park' | 'Event' | 'Unknown', 
+  primaryCategory?: string 
+} {
+  if (!place.categories || place.categories.length === 0) {
+    return { type: 'Unknown' };
   }
 
-  const aliases = yelpCategories.map(category => category.alias.toLowerCase());
-  const titles = yelpCategories.map(category => category.title);
+  // Check if any place category ID or its parent falls into our defined types
+  // Foursquare category IDs are hierarchical (e.g., 13065 (Italian Restaurant) is under 13000 (Food))
+  for (const cat of place.categories) {
+    const rootId = Math.floor(cat.id / 1000) * 1000; // e.g., 13065 -> 13000
 
-  // Check for Event Venues first (highest priority)
-  if (aliases.some(alias => EVENT_VENUE_RELATED_ALIASES.includes(alias))) {
-    const matchingEventTitle = titles.find((title, index) => 
-      EVENT_VENUE_RELATED_ALIASES.includes(aliases[index])
-    );
-    return {
-      type: 'Event',
-      specifics: {
-        eventType: matchingEventTitle || titles[0] || 'General Event Venue',
-        // LIMITATION: startDate is a placeholder - real events need specific scheduling data
-        startDate: new Date().toISOString(),
-      },
-    };
+    if (EVENT_VENUE_IDS.includes(cat.id) || EVENT_VENUE_IDS.includes(rootId)) {
+      return { type: 'Event', primaryCategory: cat.name };
+    }
+    if (PARK_RELATED_IDS.includes(cat.id) || PARK_RELATED_IDS.includes(rootId)) {
+      return { type: 'Park', primaryCategory: cat.name };
+    }
+    if (FOOD_RELATED_IDS.includes(cat.id) || FOOD_RELATED_IDS.includes(rootId)) {
+      return { type: 'Restaurant', primaryCategory: cat.name };
+    }
   }
 
-  // Check for Parks and outdoor recreation venues
-  if (aliases.some(alias => PARK_RELATED_ALIASES.includes(alias))) {
-    const matchingParkTitle = titles.find((title, index) => 
-      PARK_RELATED_ALIASES.includes(aliases[index])
-    );
-    return {
-      type: 'Park',
-      specifics: {
-        parkType: matchingParkTitle || titles[0] || 'General Park',
-        // Only include amenities that have exact alias matches
-        amenities: titles.filter((title, index) => 
-          PARK_RELATED_ALIASES.includes(aliases[index])
-        ),
-      },
-    };
-  }
-
-  // Check for Restaurants and food establishments
-  if (aliases.some(alias => FOOD_RELATED_ALIASES.includes(alias))) {
-    const matchingFoodTitles = titles.filter((title, index) => 
-      FOOD_RELATED_ALIASES.includes(aliases[index])
-    );
-    
-    // Prefer specific cuisine types over generic food categories
-    const specificCuisines = matchingFoodTitles.filter(title => 
-      !['Food', 'Restaurants', 'Bars', 'Cafes', 'Pubs'].includes(title)
-    );
-    
-    const primaryCuisine = specificCuisines.length > 0 
-      ? specificCuisines[0] 
-      : matchingFoodTitles[0] || titles[0];
-
-    return {
-      type: 'Restaurant',
-      specifics: {
-        cuisineType: primaryCuisine || 'Various',
-      },
-    };
-  }
-  
-  return { type: 'Unknown', specifics: {} };
-};
+  return { type: 'Unknown' };
+}
 
 /**
- * Transforms a single YelpBusiness object into a LocalItem object.
+ * Constructs a full image URL from Foursquare photo data.
  * 
- * This function handles the conversion from Yelp's business data structure to our standardized
+ * @param photo - The Foursquare photo object
+ * @param size - The desired image size (default: 'original')
+ * @returns Full image URL or undefined if no photo provided
+ */
+function constructImageUrl(photo: FoursquarePhoto, size: string = 'original'): string | undefined {
+  if (!photo) return undefined;
+  return `${photo.prefix}${size}${photo.suffix}`;
+}
+
+/**
+ * Transforms a single FoursquarePlace object into a LocalItem object.
+ * 
+ * This function handles the conversion from Foursquare's place data structure to our standardized
  * LocalItem format. It performs type classification and enriches the data with type-specific fields.
  * 
- * @param yelpBusiness - The raw business object from Yelp API response
+ * @param place - The raw place object from Foursquare API response
  * @returns A LocalItem object (Restaurant, Park, or Event) or null if transformation fails
  * 
  * @limitations
- * - Closed businesses are filtered out (returns null)
- * - Businesses with unrecognized categories are filtered out (returns null)
- * - Event dates are placeholders since Yelp doesn't provide event scheduling
- * - Price range mapping assumes Yelp's price format matches LocalItem's PriceRange type
+ * - Places with unrecognized categories are filtered out (returns null)
+ * - Event dates are placeholders since Foursquare doesn't provide event scheduling
+ * - Foursquare rating is scaled from 10 to 5 for consistency with other APIs
  * 
  * @example
  * ```typescript
- * const yelpBusiness = { name: "Joe's Pizza", categories: [{ alias: "pizza", title: "Pizza" }], ... };
- * const localItem = transformYelpBusinessToLocalItem(yelpBusiness);
- * // Returns a Restaurant object with cuisineType: "Pizza"
+ * const foursquarePlace = { name: "Joe's Pizza", categories: [{ id: 13065, name: "Italian Restaurant" }], ... };
+ * const localItem = transformFoursquarePlaceToLocalItem(foursquarePlace);
+ * // Returns a Restaurant object with cuisineType: "Italian Restaurant"
  * ```
  */
-export const transformYelpBusinessToLocalItem = (yelpBusiness: YelpBusiness): LocalItem | null => {
-  // Skip permanently closed businesses
-  if (yelpBusiness.is_closed) {
+export const transformFoursquarePlaceToLocalItem = (place: FoursquarePlace): LocalItem | null => {
+  const { type, primaryCategory } = getFoursquareCategoryType(place);
+  
+  if (type === 'Unknown') {
+    const categoryNames = place.categories?.map(c => c.name) || ['No categories'];
+    console.warn(`Could not determine type for Foursquare place: ${place.name} with categories: ${JSON.stringify(categoryNames)}`);
     return null;
   }
 
-  // Determine the type and extract type-specific data
-  const { type: itemType, specifics: typeSpecifics } = determineItemTypeAndSpecifics(yelpBusiness.categories);
-
-  // Filter out businesses that don't match our supported types
-  if (itemType === 'Unknown') {
-    const categoryAliases = yelpBusiness.categories 
-      ? yelpBusiness.categories.map(category => category.alias) 
-      : ['No categories'];
-    console.warn(`Could not determine type for Yelp business: ${yelpBusiness.name} with categories: ${JSON.stringify(categoryAliases)}`);
-    return null;
-  }
+  // Foursquare rating is out of 10, scale it to 5
+  const rating = place.rating ? parseFloat((place.rating / 2).toFixed(1)) : undefined;
 
   // Build the base LocalItem data structure
   const baseItemData = {
-    id: yelpBusiness.id, // Using Yelp's ID as our primary ID
-    name: yelpBusiness.name,
-    description: yelpBusiness.categories?.map(category => category.title).join(', ') || 'No specific description available.',
-    location: transformYelpLocation(yelpBusiness),
-    rating: yelpBusiness.rating,
-    imageUrl: yelpBusiness.image_url,
-    website: yelpBusiness.url,
-    sourceApi: 'yelp',
-    apiSpecificId: yelpBusiness.id,
+    id: place.fsq_id,
+    apiSpecificId: place.fsq_id,
+    sourceApi: 'foursquare' as const,
+    name: place.name,
+    description: place.description || place.categories.map(c => c.name).join(', '),
+    location: transformFoursquareLocation(place),
+    rating: rating,
+    website: place.website,
+    imageUrl: place.photos && place.photos.length > 0 ? constructImageUrl(place.photos[0], '400x400') : undefined,
   };
 
   // Create type-specific LocalItem objects
-  switch (itemType) {
+  switch (type) {
     case 'Restaurant':
-      const defaultCuisine = yelpBusiness.categories && yelpBusiness.categories.length > 0 
-        ? yelpBusiness.categories[0].title 
-        : 'Not specified';
+      // Map Foursquare price scale (1-4) to price range symbols
+      const priceMap = { 
+        1: '$' as const, 
+        2: '$$' as const, 
+        3: '$$$' as const, 
+        4: '$$$$' as const 
+      };
       return {
         ...baseItemData,
         type: 'Restaurant',
-        cuisineType: (typeSpecifics as Partial<Restaurant>).cuisineType || defaultCuisine,
-        priceRange: yelpBusiness.price as Restaurant['priceRange'],
-        ...typeSpecifics,
+        cuisineType: primaryCategory || 'Restaurant',
+        priceRange: place.price ? priceMap[place.price as keyof typeof priceMap] : undefined,
       } as Restaurant;
 
     case 'Park':
-      const defaultParkType = yelpBusiness.categories && yelpBusiness.categories.length > 0 
-        ? yelpBusiness.categories[0].title 
-        : 'Not specified';
-      const parkAmenities = yelpBusiness.categories 
-        ? yelpBusiness.categories.map(category => category.title) 
-        : [];
       return {
         ...baseItemData,
         type: 'Park',
-        parkType: (typeSpecifics as Partial<Park>).parkType || defaultParkType,
-        amenities: (typeSpecifics as Partial<Park>).amenities || parkAmenities,
-        ...typeSpecifics,
+        parkType: primaryCategory || 'Park',
+        amenities: place.categories.map(c => c.name),
       } as Park;
 
     case 'Event':
-      const defaultEventType = yelpBusiness.categories && yelpBusiness.categories.length > 0 
-        ? yelpBusiness.categories[0].title 
-        : 'Not specified';
       return {
         ...baseItemData,
         type: 'Event',
-        eventType: (typeSpecifics as Partial<Event>).eventType || defaultEventType,
-        // LIMITATION: Placeholder date since Yelp doesn't provide event scheduling
-        startDate: (typeSpecifics as Partial<Event>).startDate || new Date().toISOString(),
-        ...typeSpecifics,
+        eventType: primaryCategory || 'Event Venue',
+        // LIMITATION: Foursquare doesn't provide event dates, so we use a placeholder
+        startDate: new Date().toISOString(),
       } as Event;
 
     default:
       // TypeScript exhaustiveness check - this should never be reached
-      const _exhaustiveCheck: never = itemType;
+      const _exhaustiveCheck: never = type;
       console.error('Reached default case in item transformation switch, should not happen:', _exhaustiveCheck);
       return null;
   }
 };
 
 /**
- * Transforms a Yelp API search response (containing multiple businesses) into an array of LocalItem objects.
+ * Transforms a Foursquare API search response (containing multiple places) into an array of LocalItem objects.
  * 
- * This function processes the entire businesses array from a Yelp search response,
- * filtering out businesses that cannot be transformed (closed businesses, unrecognized types, etc.).
+ * This function processes the entire results array from a Foursquare search response,
+ * filtering out places that cannot be transformed (unrecognized types, etc.).
  * 
- * @param yelpResponse - The raw search response from Yelp API, or null/undefined if request failed
- * @returns An array of LocalItem objects (may be empty if no businesses could be transformed)
+ * @param foursquareResponse - The raw search response from Foursquare API, or null/undefined if request failed
+ * @returns An array of LocalItem objects (may be empty if no places could be transformed)
  * 
  * @example
  * ```typescript
- * const yelpResponse = await searchYelp({ location: "NYC", term: "restaurants" });
- * const localItems = transformYelpResponseToLocalItems(yelpResponse);
- * console.log(`Transformed ${localItems.length} businesses`);
+ * const foursquareResponse = await searchFoursquare({ near: "NYC", query: "restaurants" });
+ * const localItems = transformFoursquareResponseToLocalItems(foursquareResponse);
+ * console.log(`Transformed ${localItems.length} places`);
  * ```
  */
-export const transformYelpResponseToLocalItems = (yelpResponse: { businesses: YelpBusiness[] } | null | undefined): LocalItem[] => {
+export const transformFoursquareResponseToLocalItems = (foursquareResponse: FoursquareSearchResponse | null | undefined): LocalItem[] => {
   // Handle null/undefined responses gracefully
-  if (!yelpResponse || !yelpResponse.businesses) {
+  if (!foursquareResponse || !foursquareResponse.results) {
     return [];
   }
   
-  return yelpResponse.businesses
-    .map(transformYelpBusinessToLocalItem)
+  return foursquareResponse.results
+    .map(transformFoursquarePlaceToLocalItem)
     .filter((item): item is LocalItem => item !== null);
 };

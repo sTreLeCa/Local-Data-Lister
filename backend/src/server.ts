@@ -1,32 +1,54 @@
-// backend/src/server.ts
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs/promises';
 
 import { LocalItem } from '@local-data/types';
-import { searchYelp, YelpSearchParameters, YelpErrorResponse } from './services/yelpService';
-import { transformYelpResponseToLocalItems } from './services/dataTransformer';
+import { searchFoursquare, FoursquareSearchParams, FoursquareErrorResponse } from './services/foursquareService';
+import { transformFoursquareResponseToLocalItems } from './services/dataTransformer';
 
 const app = express();
 
 // Middleware
-app.use(cors()); // Enable All CORS Requests
-app.use(express.json()); // Middleware to parse JSON bodies
+app.use(cors());
+app.use(express.json());
+
+// Error handling middleware
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('[ERROR]', err.stack);
+  res.status(500).json({
+    message: 'Internal server error',
+    code: 'INTERNAL_SERVER_ERROR'
+  });
+});
 
 // --- Utility Functions for Validation ---
 const isValidNumber = (value: string | undefined): boolean => {
-  return value !== undefined && !isNaN(parseFloat(value)) && isFinite(parseFloat(value));
+  if (!value) return false;
+  const num = parseFloat(value);
+  return !isNaN(num) && isFinite(num);
 };
 
 const isValidInteger = (value: string | undefined): boolean => {
-  return value !== undefined && Number.isInteger(parseFloat(value)) && parseFloat(value) >= 0;
+  if (!value) return false;
+  const num = parseFloat(value);
+  return Number.isInteger(num) && num >= 0;
+};
+
+const sanitizeString = (value: string | undefined): string | null => {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 };
 
 // --- Health Check / Root Route ---
 app.get('/', (req: Request, res: Response) => {
   console.log('[API /] Health check endpoint accessed');
-  res.send('Backend server is running!');
+  res.status(200).json({
+    message: 'Backend server is running!',
+    timestamp: new Date().toISOString(),
+    status: 'healthy'
+  });
 });
 
 // --- API Endpoint for Local JSON Data ---
@@ -35,47 +57,75 @@ app.get('/api/local-items', async (req: Request, res: Response) => {
   
   try {
     const filePath = path.join(__dirname, 'data', 'local-items.json');
+    
+    // Check if file exists
+    try {
+      await fs.access(filePath);
+    } catch {
+      console.error('[API /api/local-items] Local items data file not found');
+      return res.status(404).json({
+        message: 'Local items data file not found.',
+        code: 'DATA_FILE_NOT_FOUND'
+      });
+    }
+    
     const fileContent = await fs.readFile(filePath, 'utf-8');
     
-    // Basic check for empty file content that would cause JSON.parse to error
     if (!fileContent.trim()) {
       console.error('[API /api/local-items] Local items data file is empty');
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: 'Error fetching local items: data source is empty.',
         code: 'EMPTY_DATA_FILE'
       });
     }
     
-    const items: LocalItem[] = JSON.parse(fileContent);
+    let items: LocalItem[];
+    try {
+      items = JSON.parse(fileContent);
+    } catch (parseError) {
+      console.error('[API /api/local-items] Failed to parse JSON:', parseError);
+      return res.status(500).json({
+        message: 'Error parsing local items data.',
+        code: 'JSON_PARSE_ERROR'
+      });
+    }
+    
+    // Validate that items is an array
+    if (!Array.isArray(items)) {
+      console.error('[API /api/local-items] Local items data is not an array');
+      return res.status(500).json({
+        message: 'Invalid data format: expected array.',
+        code: 'INVALID_DATA_FORMAT'
+      });
+    }
+    
     console.log(`[API /api/local-items] Successfully returned ${items.length} local items`);
     res.status(200).json(items);
     
   } catch (error) {
-    console.error('[API /api/local-items] Failed to read or parse local items data:', error);
-    res.status(500).json({ 
+    console.error('[API /api/local-items] Unexpected error:', error);
+    res.status(500).json({
       message: 'Error fetching local items data.',
       code: 'DATA_READ_ERROR'
     });
   }
 });
 
-// --- API Endpoint: Fetch items from External API (Yelp) ---
+// --- API Endpoint: Fetch items from External API (Foursquare) ---
 app.get('/api/external/items', async (req: Request, res: Response) => {
   console.log('[API /api/external/items] Processing external items request with query params:', req.query);
   
-  // 1. Extract query parameters
+  // Extract query parameters
   const {
-    location,       // string: e.g., "New York", "NYC", "SoHo, New York"
-    term,           // string: e.g., "restaurants", "parks", "coffee"
-    latitude,       // string (parsed to number): e.g., "40.7128"
-    longitude,      // string (parsed to number): e.g., "-74.0060"
-    limit,          // string (parsed to number): e.g., "10" (default 20, max 50)
-    offset,         // string (parsed to number): e.g., "0" (for pagination)
-    categories,     // string: comma-separated Yelp category aliases, e.g., "restaurants,bars"
+    location,
+    term,
+    latitude,
+    longitude,
+    limit,
+    offset,
+    categories,
   } = req.query;
 
-  // 2. Enhanced query parameter validation
-  
   // Validate that either location or geographical coordinates are provided
   if (!location && (!latitude || !longitude)) {
     console.warn('[API /api/external/items] Missing required location parameters');
@@ -112,31 +162,6 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
     });
   }
 
-  // 3. Construct search parameters for the Yelp service
-  const searchParams: YelpSearchParameters = {};
-
-  if (term) {
-    searchParams.term = (term as string).trim();
-    if (searchParams.term.length === 0) {
-      console.warn('[API /api/external/items] Empty term parameter provided');
-      return res.status(400).json({
-        message: 'Term parameter cannot be empty.',
-        code: 'EMPTY_TERM'
-      });
-    }
-  }
-  
-  if (categories) {
-    searchParams.categories = (categories as string).trim();
-    if (searchParams.categories.length === 0) {
-      console.warn('[API /api/external/items] Empty categories parameter provided');
-      return res.status(400).json({
-        message: 'Categories parameter cannot be empty.',
-        code: 'EMPTY_CATEGORIES'
-      });
-    }
-  }
-
   // Parse and validate limit with enhanced bounds checking
   const parsedLimit = limit ? parseInt(limit as string, 10) : 20;
   if (parsedLimit < 1 || parsedLimit > 50) {
@@ -146,20 +171,19 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
       code: 'LIMIT_OUT_OF_BOUNDS'
     });
   }
-  searchParams.limit = parsedLimit;
 
   // Parse and validate offset
-  if (offset) {
-    const parsedOffset = parseInt(offset as string, 10);
-    if (parsedOffset < 0) {
-      console.warn('[API /api/external/items] Negative offset provided:', parsedOffset);
-      return res.status(400).json({
-        message: 'Offset must be non-negative.',
-        code: 'NEGATIVE_OFFSET'
-      });
-    }
-    searchParams.offset = parsedOffset;
+  const parsedOffset = offset ? parseInt(offset as string, 10) : 0;
+  if (parsedOffset < 0) {
+    console.warn('[API /api/external/items] Negative offset provided:', parsedOffset);
+    return res.status(400).json({
+      message: 'Offset must be non-negative.',
+      code: 'NEGATIVE_OFFSET'
+    });
   }
+
+  // Initialize search parameters - handle required 'near' property
+  let searchParams: FoursquareSearchParams;
   
   // Handle location vs coordinates with enhanced validation
   if (latitude && longitude) {
@@ -183,8 +207,17 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
       });
     }
     
-    searchParams.latitude = parsedLat;
-    searchParams.longitude = parsedLon;
+    // Create search params with coordinates
+    searchParams = {
+      near: `${parsedLat},${parsedLon}`, // Use coordinates as 'near' parameter
+      limit: parsedLimit
+    };
+    
+    // Add ll property if it exists in the interface
+    if ('ll' in ({} as FoursquareSearchParams)) {
+      (searchParams as any).ll = `${parsedLat},${parsedLon}`;
+    }
+    
     console.log(`[API /api/external/items] Using coordinates: lat=${parsedLat}, lon=${parsedLon}`);
     
   } else if (location) {
@@ -196,130 +229,197 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
         code: 'EMPTY_LOCATION'
       });
     }
-    searchParams.location = trimmedLocation;
+    
+    // Create search params with location
+    searchParams = {
+      near: trimmedLocation,
+      limit: parsedLimit
+    };
+    
     console.log(`[API /api/external/items] Using location: ${trimmedLocation}`);
+  } else {
+    // This should never happen due to earlier validation
+    console.error('[API /api/external/items] No valid location parameters found');
+    return res.status(400).json({
+      message: 'Location validation failed.',
+      code: 'LOCATION_VALIDATION_ERROR'
+    });
+  }
+
+  // Add optional parameters
+  if (term) {
+    const trimmedTerm = (term as string).trim();
+    if (trimmedTerm.length === 0) {
+      console.warn('[API /api/external/items] Empty term parameter provided');
+      return res.status(400).json({
+        message: 'Term parameter cannot be empty.',
+        code: 'EMPTY_TERM'
+      });
+    }
+    searchParams.query = trimmedTerm;
+  }
+  
+  if (categories) {
+    const trimmedCategories = (categories as string).trim();
+    if (trimmedCategories.length === 0) {
+      console.warn('[API /api/external/items] Empty categories parameter provided');
+      return res.status(400).json({
+        message: 'Categories parameter cannot be empty.',
+        code: 'EMPTY_CATEGORIES'
+      });
+    }
+    searchParams.categories = trimmedCategories;
+  }
+
+  // Handle offset if supported by the interface
+  if (parsedOffset > 0) {
+    // Check if offset exists in the interface by trying to access it
+    try {
+      (searchParams as any).offset = parsedOffset;
+    } catch (error) {
+      console.warn('[API /api/external/items] Offset parameter not supported by Foursquare interface');
+    }
   }
 
   try {
-    // 4. Call the external API service (yelpService)
-    console.log(`[API /api/external/items] Calling Yelp service with validated params:`, searchParams);
-    const yelpApiResponse = await searchYelp(searchParams);
+    console.log('[API /api/external/items] Calling Foursquare service with validated params:', searchParams);
+    const foursquareApiResponse = await searchFoursquare(searchParams);
 
-    // 5. Transform the raw API response into our LocalItem[] format
-    const localItems: LocalItem[] = transformYelpResponseToLocalItems(yelpApiResponse);
+    if (!foursquareApiResponse || !foursquareApiResponse.results) {
+      console.error('[API /api/external/items] Invalid response from Foursquare service');
+      return res.status(502).json({
+        message: 'Invalid response from external service.',
+        code: 'INVALID_EXTERNAL_RESPONSE',
+        source: 'foursquare'
+      });
+    }
+
+    const localItems: LocalItem[] = transformFoursquareResponseToLocalItems(foursquareApiResponse);
     
-    console.log(`[API /api/external/items] Successfully transformed ${localItems.length} items from Yelp response (total available: ${yelpApiResponse.total})`);
+    console.log(`[API /api/external/items] Successfully transformed ${localItems.length} items from Foursquare response`);
     
-    // 6. Respond with the transformed items and metadata
     res.status(200).json({
       items: localItems,
-      totalResultsFromSource: yelpApiResponse.total, // Useful for frontend pagination
-      source: 'live', // Relevant for future caching implementation
+      totalResultsFromSource: foursquareApiResponse.results.length,
+      source: 'foursquare',
       requestParams: {
         limit: searchParams.limit,
-        offset: searchParams.offset || 0,
+        offset: parsedOffset,
       }
     });
 
   } catch (error) {
-    // 7. Enhanced error handling with consistent logging and response format
     console.error('[API /api/external/items] Error occurred:', error);
 
     if (error instanceof Error) {
-      // Handle known Yelp API error responses with detailed parsing
-      if (error.message.startsWith('Yelp API request failed')) {
-        console.error('[API /api/external/items] Yelp API error detected');
+      // Handle Foursquare API errors
+      if (error.message.startsWith('Foursquare API request failed')) {
+        console.error('[API /api/external/items] Foursquare API error detected');
         
         try {
-          // Extract status code from error message
           const statusMatch = error.message.match(/status (\d+)/);
           const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 502;
 
-          // Extract and parse JSON error details
           const jsonStartIndex = error.message.indexOf('{');
           if (jsonStartIndex !== -1) {
             const jsonErrorString = error.message.substring(jsonStartIndex);
-            const yelpErrorDetails = JSON.parse(jsonErrorString) as YelpErrorResponse;
+            const foursquareErrorDetails = JSON.parse(jsonErrorString) as FoursquareErrorResponse;
 
-            console.error('[API /api/external/items] Parsed Yelp error details:', yelpErrorDetails);
+            console.error('[API /api/external/items] Parsed Foursquare error details:', foursquareErrorDetails);
 
-            return res.status(statusCode).json({
-              message: `External API error: ${yelpErrorDetails.error?.description || 'Details unavailable'}`,
-              code: yelpErrorDetails.error?.code || 'EXTERNAL_API_ERROR',
-              source: 'yelp',
-              details: yelpErrorDetails,
+            return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 502).json({
+              message: `External API error: ${foursquareErrorDetails.message || 'Details unavailable'}`,
+              code: 'EXTERNAL_API_ERROR',
+              source: 'foursquare',
+              details: foursquareErrorDetails,
             });
           }
         } catch (parseError) {
-          console.error('[API /api/external/items] Failed to parse Yelp error details:', parseError);
-          return res.status(502).json({ 
+          console.error('[API /api/external/items] Failed to parse Foursquare error details:', parseError);
+          return res.status(502).json({
             message: 'Error communicating with external service. Could not parse error details.',
             code: 'EXTERNAL_API_PARSE_ERROR',
-            source: 'yelp',
-            rawError: error.message 
+            source: 'foursquare',
+            rawError: error.message
           });
         }
       }
       
-      // Handle network or other service errors
-      if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+      // Handle network errors
+      if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
         console.error('[API /api/external/items] Network connectivity error');
         return res.status(503).json({
           message: 'External service temporarily unavailable. Please try again later.',
           code: 'SERVICE_UNAVAILABLE',
-          source: 'yelp'
+          source: 'foursquare'
         });
       }
     }
 
-    // Generic internal server error for unhandled cases
+    // Generic error fallback
     console.error('[API /api/external/items] Unhandled error, returning generic server error');
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Failed to fetch external items due to an internal server error.',
       code: 'INTERNAL_SERVER_ERROR'
     });
   }
 });
 
-// --- TEMPORARY TEST ROUTE for Yelp Service ---
-// Protected for development environment only
-app.get('/api/test-yelp', async (req: Request, res: Response) => {
+// --- Development Test Route ---
+app.get('/api/test-foursquare', async (req: Request, res: Response) => {
   if (process.env.NODE_ENV !== 'development') {
-    console.warn('[API /api/test-yelp] Unauthorized access attempt in non-development environment');
-    return res.status(403).json({ 
+    console.warn('[API /api/test-foursquare] Unauthorized access attempt in non-development environment');
+    return res.status(403).json({
       message: 'Forbidden in this environment',
-      code: 'ENVIRONMENT_RESTRICTED'  
+      code: 'ENVIRONMENT_RESTRICTED'
     });
   }
   
-  console.log('[API /api/test-yelp] Test endpoint accessed with query:', req.query);
+  console.log('[API /api/test-foursquare] Test endpoint accessed with query:', req.query);
   
   try {
-    const params: YelpSearchParameters = {
-      location: (req.query.location as string) || 'San Francisco',
-      term: (req.query.term as string) || 'restaurants',
-      limit: 3, // Keep it small for testing
+    const params: FoursquareSearchParams = {
+      near: sanitizeString(req.query.location as string) || 'San Francisco',
+      limit: 3,
     };
     
-    console.log(`[API /api/test-yelp] Calling Yelp service with test params:`, params);
-    const yelpData = await searchYelp(params);
-    console.log(`[API /api/test-yelp] Successfully retrieved test data`);
+    // Add query parameter if provided
+    const queryTerm = sanitizeString(req.query.term as string);
+    if (queryTerm) {
+      params.query = queryTerm;
+    } else {
+      params.query = 'restaurants';
+    }
     
-    res.json({
+    console.log('[API /api/test-foursquare] Calling Foursquare service with test params:', params);
+    const foursquareData = await searchFoursquare(params);
+    console.log('[API /api/test-foursquare] Successfully retrieved test data');
+    
+    res.status(200).json({
       message: 'Test successful',
-      data: yelpData,
+      data: foursquareData,
       timestamp: new Date().toISOString()
     });
     
   } catch (error) {
-    console.error('[API /api/test-yelp] Test endpoint error:', error);
+    console.error('[API /api/test-foursquare] Test endpoint error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ 
-      message: 'Failed to fetch data from Yelp (test route)', 
+    res.status(500).json({
+      message: 'Failed to fetch data from Foursquare (test route)',
       code: 'TEST_ENDPOINT_ERROR',
-      error: errorMessage 
+      error: errorMessage
     });
   }
+});
+
+// --- 404 Handler ---
+app.use('*', (req: Request, res: Response) => {
+  console.log(`[API] 404 - Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    message: 'Route not found',
+    code: 'ROUTE_NOT_FOUND',
+    path: req.originalUrl
+  });
 });
 
 export default app;
