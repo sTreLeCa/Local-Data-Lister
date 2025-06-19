@@ -1,0 +1,136 @@
+/* frontend/src/App.css */
+
+.App {
+  max-width: 1200px; /* Limits content width for better readability on large screens */
+  margin: 0 auto; /* Centers the content */
+  padding: 20px 24px; /* Padding around the main content */
+}
+
+.App h1 {
+  text-align: center;
+  font-size: 2.5rem; /* Larger, more prominent main title */
+  color: #2c3e50; /* A deep, professional blue-grey */
+  margin-bottom: 40px;
+  font-weight: 500;
+}
+
+.App h2 {
+  font-size: 1.8rem;
+  color: #34495e; /* Slightly lighter than h1 */
+  margin-top: 40px;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e0e0e0; /* Subtle separator */
+  font-weight: 500;
+}
+
+.App h3 { /* For "External Search Results" etc. */
+  font-size: 1.6rem; /* Adjusted size */
+  color: #34495e;
+  margin-top: 30px;
+  margin-bottom: 20px; /* Increased space below */
+  font-weight: 500;
+  text-align: left; /* Align to left, not centered for this context */
+}
+
+/* NEW: Styles for sections */
+.search-section,
+.results-section {
+  margin-bottom: 30px; /* Space between logical sections */
+}
+
+.search-controls {
+  background-color: #ffffff;
+  padding: 20px 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px; /* Space between controls and results heading */
+}
+
+.search-input {
+  padding: 10px 14px; /* Slightly adjusted padding */
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  font-size: 0.95rem; /* Slightly smaller font for inputs */
+  flex-grow: 1;
+  min-width: 180px;
+}
+
+.search-input.type-select {
+  flex-grow: 0.5; /* Make type select a bit smaller if desired */
+  min-width: 150px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.search-button {
+  padding: 10px 18px; /* Adjusted padding */
+  border-radius: 6px;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.search-button:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.search-button:disabled {
+  background-color: #c0c0c0;
+  cursor: not-allowed;
+}
+
+/* NEW: Container for the filter input above external results */
+.filter-container {
+  margin-bottom: 15px;
+  display: flex;
+}
+
+.filter-input { /* Specific styling for the "filter these results" input */
+  width: 100%;
+  max-width: 400px; /* Or adjust as needed */
+  margin-left: auto; /* Push to right, or remove for full width */
+  margin-right: auto;
+}
+
+.items-list-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Adjusted minmax */
+  gap: 20px;
+  min-height: 200px; /* To reduce page jump when empty, adjust as needed */
+}
+
+/* Status messages styling */
+.status-message {
+  font-size: 1rem;
+  color: #555;
+  text-align: center;
+  padding: 20px;
+  grid-column: 1 / -1; /* Make message span all columns */
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
+
+.error-message {
+  color: #D8000C; /* Red for errors */
+  background-color: #FFD2D2; /* Light red background */
+  border: 1px solid #D8000C;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 40px 0;
+}

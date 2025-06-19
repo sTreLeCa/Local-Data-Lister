@@ -1,39 +1,70 @@
 /* frontend/src/components/LocalItemCard.module.css */
+
 .card {
-  border: 1px solid #e0e0e0;
+  background-color: #ffffff;
+  border: 1px solid #dee2e6; /* Slightly softer border */
   border-radius: 8px;
-  padding: 16px;
-  margin: 12px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  background-color: #fff;
-  max-width: 600px; /* Example width, adjust as needed */
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06); /* More defined shadow */
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column; /* Align items vertically */
 }
+
+.card:hover {
+  transform: translateY(-3px); /* Subtle lift on hover */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.itemImage { /* Class for the <img> tag */
+  width: 100%;
+  height: 180px; /* Fixed height for consistency */
+  object-fit: cover; /* Crop image to fit, maintaining aspect ratio */
+  border-radius: 6px; /* Rounded corners for the image */
+  margin-bottom: 15px;
+  background-color: #f0f0f0; /* Placeholder color if image is missing/loading */
+}
+
 .name {
   margin-top: 0;
   margin-bottom: 8px;
-  font-size: 1.5em; 
-  color: #333;
+  font-size: 1.3rem; /* Good size for card titles */
+  font-weight: 700; /* Bolder name */
+  color: #343a40;
 }
+
 .infoItem {
-  font-size: 0.95em;
-  color: #555;
+  font-size: 0.9rem;
+  color: #495057; /* Slightly darker grey for better readability */
   margin: 4px 0;
+  line-height: 1.5;
 }
+
+.infoItem strong { /* If you wrap labels in <strong>, e.g., <strong>Cuisine:</strong> */
+  font-weight: 500;
+  color: #212529;
+}
+
 .description {
-  font-size: 0.9em;
-  color: #777;
+  font-size: 0.95rem;
+  color: #6c757d;
   margin-top: 10px;
+  margin-bottom: 12px;
+  flex-grow: 1; /* Allows description to take up available space, pushing mapLink down */
 }
 
 .mapLink {
-  display: inline-block;
-  margin-top: 12px;
-  font-size: 0.9em;
-  font-weight: bold;
+  display: inline-block; /* Allows margin-top */
+  margin-top: auto; /* Pushes link to the bottom if card uses flex-direction: column */
+  padding-top: 10px; /* Space above the link */
+  font-size: 0.9rem;
+  font-weight: 500;
   color: #007bff;
   text-decoration: none;
+  align-self: flex-start; /* Align to the start if card is a flex container */
 }
 
 .mapLink:hover {
   text-decoration: underline;
+  color: #0056b3;
 }
