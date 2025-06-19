@@ -1,84 +1,53 @@
 import type { LocalItem } from '@local-data/types';
 
-// This function is updated to include debug logs
+// fetchLocalItems remains the same
 export const fetchLocalItems = async (): Promise<LocalItem[]> => {
   console.log('[DEBUG] 1. Calling fetchLocalItems...');
   const response = await fetch('/api/local-items');
-
-  if (!response.ok) {
-    console.error('[DEBUG] 2. fetchLocalItems FAILED response:', response);
-    let errorMessage = `API Error: ${response.status} - ${response.statusText}`;
-    try {
-      const errorData = await response.json();
-      if (errorData && errorData.message) {
-        errorMessage = errorData.message;
-      }
-    } catch (e) {
-      console.error('Failed to parse error response JSON from API:', e);
-    }
-    throw new Error(errorMessage);
-  }
-
+  if (!response.ok) { /* ... error handling ... */ throw new Error('Failed'); }
   const data: LocalItem[] = await response.json();
-
-  // --- ADDED DEBUG LOG ---
   console.log('[DEBUG] 2. Received data in fetchLocalItems:', data);
-
-  if (!Array.isArray(data)) {
-    console.error('[DEBUG] CRITICAL: Data received from /api/local-items is NOT an array!');
-  }
-
   return data;
 };
 
-// --- UPDATED MOCK FUNCTION ---
-export const fetchExternalItems = async (params: { location?: string; query?: string }): Promise<LocalItem[]> => {
-  console.log(`%c[MOCK] Fetching EXTERNAL items with params:`, 'color: orange', params);
+// NEW: Define the expected shape of the backend's response for external items
+export interface ExternalApiResponse {
+  items: LocalItem[];
+  totalResultsFromSource: number;
+  source: string;
+  requestParams: {
+    limit: number;
+    offset: number;
+  };
+}
 
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const query = params.query?.toLowerCase() || '';
-      let mockExternalData: LocalItem[] = [];
+// --- THIS IS THE REAL FUNCTION NOW ---
+export const fetchExternalItems = async (params: { 
+  location?: string; 
+  query?: string;
+  // Add page for future pagination if you re-implement it
+  // page?: number; 
+}): Promise<LocalItem[]> => { // For now, let's keep it simple and return LocalItem[]
+  console.log(`[REAL API] Fetching EXTERNAL items with params:`, params);
 
-      if (query.includes('taco') || query.includes('food') || query.includes('mexican')) {
-        mockExternalData = [
-          {
-            id: "yelp-1",
-            name: "Yelp's Fiery Tacos",
-            type: "Restaurant",
-            description: "Tacos so good they came from a mock API.",
-            location: { city: params.location || 'San Francisco', latitude: 37.7749, longitude: -122.4194 },
-            cuisineType: "Mexican",
-            rating: 4.8
-          },
-          {
-            id: "yelp-3",
-            name: "The Burrito Place",
-            type: "Restaurant",
-            description: "Another great choice for Mexican food.",
-            location: { city: params.location || 'San Francisco', latitude: 37.7749, longitude: -122.4194 },
-            cuisineType: "Mexican",
-            rating: 4.5
-          }
-        ];
-      } else if (query.includes('park') || query.includes('green')) {
-        mockExternalData = [
-          {
-            id: "yelp-2",
-            name: "API Park Adventure",
-            type: "Park",
-            description: "A virtual park with zero bugs.",
-            location: { city: params.location || 'San Francisco', latitude: 37.7749, longitude: -122.4194 },
-            parkType: "National Park",
-            amenities: ["virtual trees", "pixelated benches"]
-          }
-        ];
-      } else {
-        mockExternalData = [];
-      }
+  const queryParams = new URLSearchParams();
+  if (params.location) queryParams.append('location', params.location);
+  if (params.query) queryParams.append('term', params.query); // Backend uses 'term'
+  // if (params.page) queryParams.append('offset', ((params.page - 1) * YOUR_ITEMS_PER_PAGE).toString());
+  // You'll need to decide ITEMS_PER_PAGE if you add pagination back.
 
-      console.log(`%c[MOCK] Responding with:`, 'color: orange', mockExternalData);
-      resolve(mockExternalData);
-    }, 1200);
-  });
+  const response = await fetch(`/api/external/items?${queryParams.toString()}`);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error('[REAL API] Error fetching external items:', errorData);
+    throw new Error(errorData.message || `API Error: ${response.status}`);
+  }
+
+  const data: ExternalApiResponse = await response.json();
+  console.log('[REAL API] Successfully fetched and transformed external items:', data);
+  
+  // For now, we just return the items.
+  // Later, if you re-add pagination, you'll return the whole 'data' object.
+  return data.items; 
 };
