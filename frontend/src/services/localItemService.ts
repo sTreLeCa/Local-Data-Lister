@@ -1,76 +1,53 @@
 import type { LocalItem } from '@local-data/types';
 
-// This function remains unchanged
+// fetchLocalItems remains the same
 export const fetchLocalItems = async (): Promise<LocalItem[]> => {
+  console.log('[DEBUG] 1. Calling fetchLocalItems...');
   const response = await fetch('/api/local-items');
-  if (!response.ok) {
-    let errorMessage = `API Error: ${response.status} - ${response.statusText}`;
-    try {
-      const errorData = await response.json();
-      if (errorData && errorData.message) {
-        errorMessage = errorData.message;
-      }
-    } catch (e) {
-      console.error('Failed to parse error response JSON from API:', e);
-    }
-    throw new Error(errorMessage);
-  }
+  if (!response.ok) { /* ... error handling ... */ throw new Error('Failed'); }
   const data: LocalItem[] = await response.json();
+  console.log('[DEBUG] 2. Received data in fetchLocalItems:', data);
   return data;
 };
 
+// NEW: Define the expected shape of the backend's response for external items
+export interface ExternalApiResponse {
+  items: LocalItem[];
+  totalResultsFromSource: number;
+  source: string;
+  requestParams: {
+    limit: number;
+    offset: number;
+  };
+}
 
-// --- UPDATED, "SMART" MOCK FUNCTION ---
-export const fetchExternalItems = async (params: { location?: string; query?: string }): Promise<LocalItem[]> => {
-  console.log(`%c[MOCK] Fetching EXTERNAL items with params:`, 'color: orange', params);
+// --- THIS IS THE REAL FUNCTION NOW ---
+export const fetchExternalItems = async (params: { 
+  location?: string; 
+  query?: string;
+  // Add page for future pagination if you re-implement it
+  // page?: number; 
+}): Promise<LocalItem[]> => { // For now, let's keep it simple and return LocalItem[]
+  console.log(`[REAL API] Fetching EXTERNAL items with params:`, params);
+
+  const queryParams = new URLSearchParams();
+  if (params.location) queryParams.append('location', params.location);
+  if (params.query) queryParams.append('term', params.query); // Backend uses 'term'
+  // if (params.page) queryParams.append('offset', ((params.page - 1) * YOUR_ITEMS_PER_PAGE).toString());
+  // You'll need to decide ITEMS_PER_PAGE if you add pagination back.
+
+  const response = await fetch(`/api/external/items?${queryParams.toString()}`);
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error('[REAL API] Error fetching external items:', errorData);
+    throw new Error(errorData.message || `API Error: ${response.status}`);
+  }
+
+  const data: ExternalApiResponse = await response.json();
+  console.log('[REAL API] Successfully fetched and transformed external items:', data);
   
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // --- NEW LOGIC: Check the query parameter ---
-      const query = params.query?.toLowerCase() || '';
-      let mockExternalData: LocalItem[] = [];
-
-      if (query.includes('taco') || query.includes('food') || query.includes('mexican')) {
-        mockExternalData = [
-          {
-            id: "yelp-1",
-            name: "Yelp's Fiery Tacos",
-            type: "restaurant",
-            description: "Tacos so good they came from a mock API.",
-            location: { city: params.location || 'San Francisco', latitude: 37.7749, longitude: -122.4194 },
-            cuisineType: "Mexican",
-            rating: 4.8
-          },
-          {
-            id: "yelp-3",
-            name: "The Burrito Place",
-            type: "restaurant",
-            description: "Another great choice for Mexican food.",
-            location: { city: params.location || 'San Francisco', latitude: 37.7749, longitude: -122.4194 },
-            cuisineType: "Mexican",
-            rating: 4.5
-          }
-        ];
-      } else if (query.includes('park') || query.includes('green')) {
-        mockExternalData = [
-          {
-            id: "yelp-2",
-            name: "API Park Adventure",
-            type: "park",
-            description: "A virtual park with zero bugs.",
-            location: { city: params.location || 'San Francisco', latitude: 37.7749, longitude: -122.4194 },
-            parkType: "National Park",
-            amenities: ["virtual trees", "pixelated benches"]
-          }
-        ];
-      } else {
-        // If the query doesn't match anything, return an empty array,
-        // just like a real API would.
-        mockExternalData = [];
-      }
-      
-      console.log(`%c[MOCK] Responding with:`, 'color: orange', mockExternalData);
-      resolve(mockExternalData);
-    }, 1200);
-  });
+  // For now, we just return the items.
+  // Later, if you re-add pagination, you'll return the whole 'data' object.
+  return data.items; 
 };

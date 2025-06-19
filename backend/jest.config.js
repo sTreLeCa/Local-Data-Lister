@@ -3,6 +3,9 @@ module.exports = {
   preset: 'ts-jest', 
   testEnvironment: 'node', 
   
+  // ADD THIS LINE:
+  setupFiles: ['./jest.setup.js'],
+  
   moduleNameMapper: {
     '^@local-data/types$': '<rootDir>/../packages/types/src/index.ts'
   },

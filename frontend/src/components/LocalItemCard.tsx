@@ -25,30 +25,30 @@ export const LocalItemCard: React.FC<LocalItemCardProps> = ({ item }) => {
 
   const renderTypeSpecificInfo = () => {
     switch (item.type) {
-      case 'restaurant':
+      case 'Restaurant':
         return (
           <>
             <p className={styles.infoItem}>Cuisine: {item.cuisineType}</p>
             {item.priceRange && <p className={styles.infoItem}>Price Range: {item.priceRange}</p>}
           </>
         );
-      case 'event':
+      case 'Event':
         return (
           <>
             <p className={styles.infoItem}>Event Type: {item.eventType}</p>
-            {item.eventDate && (
+            {item.startDate && (
               <p className={styles.infoItem}>
-                Date: {new Date(item.eventDate).toLocaleDateString()}
+                Date: {new Date(item.startDate).toLocaleDateString()}
               </p>
             )}
-            {item.price !== undefined && (
+            {item.ticketPrice !== undefined && (
               <p className={styles.infoItem}>
-                Price: {item.price === 0 ? "Free" : `$${item.price.toFixed(2)}`}
+                Price: {typeof item.ticketPrice === 'number' ? (item.ticketPrice === 0 ? "Free" : `$${item.ticketPrice.toFixed(2)}`) : item.ticketPrice}
               </p>
             )}
           </>
         );
-      case 'park':
+      case 'Park':
         return (
           <>
             <p className={styles.infoItem}>Park Type: {item.parkType}</p>
@@ -58,27 +58,20 @@ export const LocalItemCard: React.FC<LocalItemCardProps> = ({ item }) => {
           </>
         );
       default:
-        const _exhaustiveCheck: never = item;
-        return _exhaustiveCheck;
+        return null; // TypeScript ensures all cases are handled, no need for _exhaustiveCheck
     }
   };
-  
-  // --- NEW: Construct the Google Maps URL ---
+
   const mapUrl = `https://www.google.com/maps?q=${item.location.latitude},${item.location.longitude}`;
 
   return (
     <div className={styles.card}>
       <h3 className={styles.name}>{item.name}</h3>
-      <p className={styles.infoItem}>Type: {item.type.charAt(0).toUpperCase() + item.type.slice(1)}</p>
+      <p className={styles.infoItem}>Type: {item.type}</p>
       <p className={styles.description}>{item.description}</p>
       {displayLocationString && <p className={styles.infoItem}>Location: {displayLocationString}</p>}
       {item.rating !== undefined && <p className={styles.infoItem}>Rating: {item.rating}/5</p>}
-      
-      {/* Renders all the correct, detailed type-specific info */}
       {renderTypeSpecificInfo()}
-
-      {/* --- NEW: The map link itself --- */}
-      {/* It only renders if we have latitude and longitude */}
       {item.location.latitude && item.location.longitude && (
         <a href={mapUrl} target="_blank" rel="noopener noreferrer" className={styles.mapLink}>
           View on Map

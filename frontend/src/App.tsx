@@ -6,69 +6,85 @@ import { fetchLocalItems, fetchExternalItems } from './services/localItemService
 
 function App() {
   // --- STATE FOR INITIAL STAGE (SIMULATED DATA) ---
-  // This group of state variables manages the data loaded from the local JSON file.
   const [localItems, setLocalItems] = useState<LocalItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>(''); // For client-side filtering
+  const [filterTerm, setFilterTerm] = useState<string>('');
 
   // --- STATE FOR ADVANCED STAGE (EXTERNAL API) ---
-  // This group manages the UI and data related to the external API search.
   const [location, setLocation] = useState<string>('New York');
-  const [externalQuery, setExternalQuery] = useState<string>('food');
+  const [externalTerm, setExternalTerm] = useState<string>('food');
   const [externalItems, setExternalItems] = useState<LocalItem[]>([]);
   const [isExternalLoading, setIsExternalLoading] = useState<boolean>(false);
   const [externalError, setExternalError] = useState<string | null>(null);
 
-  // This useEffect hook runs only once on initial component mount to load the
-  // static list of items from the backend's simulated endpoint.
   useEffect(() => {
+    console.log('[DEBUG] App mounted. Fetching local items...');
     const loadItems = async () => {
       setIsLoading(true);
       setError(null);
       try {
         const data = await fetchLocalItems();
-        setLocalItems(data);
+        console.log('[DEBUG] Local items fetched:', data);
+        setLocalItems(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (err instanceof Error) { setError(err.message); } 
-        else { setError('An unknown error occurred while fetching items.'); }
+        console.error('[DEBUG] Error fetching local items:', err);
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('An unknown error occurred while fetching items.');
+        }
         setLocalItems([]);
       } finally {
         setIsLoading(false);
+        console.log('[DEBUG] Finished loading local items.');
       }
     };
     loadItems();
-  }, []); // The empty dependency array ensures this runs only once.
+  }, []);
 
-  // useMemo is used for performance optimization. This filtering logic only
-  // re-runs when the `localItems` list or the `searchTerm` changes, not on every render.
   const filteredLocalItems = useMemo(() => {
-    if (!searchTerm.trim()) return localItems;
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    return localItems.filter(item => {
+    console.log('[DEBUG] Filtering localItems with term:', filterTerm);
+    if (!Array.isArray(localItems)) {
+      console.error('[DEBUG] localItems is not an array!', localItems);
+      return [];
+    }
+    if (!filterTerm.trim()) return localItems;
+
+    const lowerSearchTerm = filterTerm.toLowerCase();
+    const filtered = localItems.filter(item => {
+      if (!item || typeof item.name !== 'string') return false;
       if (item.name.toLowerCase().includes(lowerSearchTerm)) return true;
       if (item.description.toLowerCase().includes(lowerSearchTerm)) return true;
       switch (item.type) {
-        case 'restaurant': return item.cuisineType.toLowerCase().includes(lowerSearchTerm);
-        case 'park': return item.parkType.toLowerCase().includes(lowerSearchTerm) || item.amenities?.some(a => a.toLowerCase().includes(lowerSearchTerm));
-        case 'event': return item.eventType.toLowerCase().includes(lowerSearchTerm);
+        case 'Restaurant':
+          return item.cuisineType.toLowerCase().includes(lowerSearchTerm);
+        case 'Park':
+          return item.parkType.toLowerCase().includes(lowerSearchTerm) ||
+            item.amenities?.some(a => a.toLowerCase().includes(lowerSearchTerm));
+        case 'Event':
+          return item.eventType.toLowerCase().includes(lowerSearchTerm);
+        default:
+          return false;
       }
-      return false;
     });
-  }, [localItems, searchTerm]);
 
-  // Handler for the external search button.
-  // This provides a better UX by clearing old results and showing a loading
-  // state immediately when a new search is initiated.
+    console.log('[DEBUG] Filtered local items:', filtered);
+    return filtered;
+  }, [localItems, filterTerm]);
+
   const handleExternalSearch = async () => {
+    console.log('[DEBUG] External search triggered with:', { location, externalTerm });
     setIsExternalLoading(true);
     setExternalItems([]);
     setExternalError(null);
 
     try {
-      const data = await fetchExternalItems({ location, query: externalQuery });
-      setExternalItems(data);
+      const data = await fetchExternalItems({ location, query: externalTerm });
+      console.log('[DEBUG] External items fetched:', data);
+      setExternalItems(Array.isArray(data) ? data : []);
     } catch (err) {
+      console.error('[DEBUG] Error fetching external items:', err);
       if (err instanceof Error) {
         setExternalError(err.message);
       } else {
@@ -76,67 +92,102 @@ function App() {
       }
     } finally {
       setIsExternalLoading(false);
+      console.log('[DEBUG] Finished loading external items.');
     }
   };
+
+  // Debug all state at render time
+  console.log('[DEBUG] App render cycle triggered.');
+  console.log('[DEBUG] State summary:', {
+    isLoading,
+    error,
+    localItemsCount: localItems.length,
+    filterTerm,
+    filteredLocalItemsCount: filteredLocalItems.length,
+    externalItemsCount: externalItems.length,
+    isExternalLoading,
+    externalError,
+    location,
+    externalTerm
+  });
 
   return (
     <div className="App">
       <h1>Local Information Viewer</h1>
-      
-      {/* External Search Section */}
+
       <div className="search-container">
-        <h2>Search Real-World Data (via Mock API)</h2>
+        <h2>Search Real-World Data (via Foursquare API)</h2>
         <input
           type="text"
           placeholder="Enter a location (e.g., Chicago)"
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onChange={(e) => {
+            console.log('[DEBUG] Location changed to:', e.target.value);
+            setLocation(e.target.value);
+          }}
           className="search-input"
         />
         <input
           type="text"
-          placeholder="Enter a query (e.g., park, pizza)"
-          value={externalQuery}
-          onChange={(e) => setExternalQuery(e.target.value)}
+          placeholder="Enter a search term (e.g., park, pizza)"
+          value={externalTerm}
+          onChange={(e) => {
+            console.log('[DEBUG] External search term changed to:', e.target.value);
+            setExternalTerm(e.target.value);
+          }}
           className="search-input"
         />
-        <button onClick={handleExternalSearch} disabled={isExternalLoading} className="search-button">
+        <button
+          onClick={handleExternalSearch}
+          disabled={isExternalLoading || !location.trim()}
+          className="search-button"
+        >
           {isExternalLoading ? 'Searching...' : 'Search External Data'}
         </button>
       </div>
 
-      {/* Conditional rendering block for the external search results. */}
-      {/* This ensures only one state (loading, error, or results) is shown at a time. */}
       <div className="items-list-container">
         {isExternalLoading && <p>Loading external data...</p>}
         {externalError && <p style={{ color: 'red' }}>Error: {externalError}</p>}
         {!isExternalLoading && !externalError && externalItems.length > 0 && (
           <>
             <h3>External Search Results</h3>
-            {externalItems.map(item => (
-              <LocalItemCard key={item.id} item={item} />
-            ))}
+            {externalItems.map(item => {
+              console.log('[DEBUG] Rendering external LocalItemCard:', item);
+              return <LocalItemCard key={item.id} item={item} />;
+            })}
           </>
         )}
       </div>
 
       <hr style={{ margin: '40px 0' }} />
 
-      {/* Initial Simulated Data Section */}
       <div className="search-container">
         <h2>Filter Simulated Local Data</h2>
-        {!isLoading && !error && (
-          <input type="text" placeholder="Filter the list below..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
-        )}
+        <input
+          type="text"
+          placeholder="Filter the list below..."
+          value={filterTerm}
+          onChange={(e) => {
+            console.log('[DEBUG] Filter term changed to:', e.target.value);
+            setFilterTerm(e.target.value);
+          }}
+          className="search-input"
+        />
       </div>
+
       <div className="items-list-container">
-        {isLoading && <p>Loading local items...</p>}
-        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-        {!isLoading && !error && filteredLocalItems.length > 0 && (
-          filteredLocalItems.map(item => <LocalItemCard key={item.id} item={item} />)
-        )}
-        {!isLoading && !error && localItems.length > 0 && filteredLocalItems.length === 0 && (
-          <p>No simulated items match your filter.</p>
+        {isLoading ? (
+          <p>Loading local items...</p>
+        ) : error ? (
+          <p style={{ color: 'red' }}>Error: {error}</p>
+        ) : filteredLocalItems.length > 0 ? (
+          filteredLocalItems.map(item => {
+            console.log('[DEBUG] Rendering local LocalItemCard:', item);
+            return <LocalItemCard key={item.id} item={item} />;
+          })
+        ) : (
+          <p>No items to display.</p>
         )}
       </div>
     </div>
