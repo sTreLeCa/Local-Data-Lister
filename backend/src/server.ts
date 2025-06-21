@@ -6,6 +6,7 @@ import fs from 'fs/promises';
 import { LocalItem } from '@local-data/types';
 import { searchFoursquare, FoursquareSearchParams, FoursquareErrorResponse } from './services/foursquareService';
 import { transformFoursquareResponseToLocalItems } from './services/dataTransformer';
+import * as cacheService from './services/cacheService';
 
 const app = express();
 
@@ -112,8 +113,147 @@ app.get('/api/local-items', async (req: Request, res: Response) => {
 // --- API Endpoint: Fetch items from External API (Foursquare) ---
 app.get('/api/external/items', async (req: Request, res: Response) => {
   console.log('[API /api/external/items] Processing external items request with query params:', req.query);
-  
-  // Extract query parameters
+
+
+  // backend/src/server.ts
+// ... (სხვა იმპორტები: express, cors, path, fs, LocalItem, foursquareService, dataTransformer) ...
+
+// ... (app, middleware, utility functions, root route, /api/local-items route იგივე რჩება) ...
+
+// --- API Endpoint: Fetch items from External API (Foursquare) ---
+app.get('/api/external/items', async (req: Request, res: Response) => {
+  console.log('[API /api/external/items] Processing external items request with query params:', req.query);
+
+  // --- DB2.1: Generate Cache Key ---
+  // req.query-ის ტიპიზაცია, რათა generateApiCacheKey-ს სწორად გადავცეთ
+  const queryParamsForCache: Record<string, string | number | undefined> = {};
+  for (const key in req.query) {
+    if (typeof req.query[key] === 'string' || typeof req.query[key] === 'number') {
+      queryParamsForCache[key] = req.query[key] as (string | number);
+    }
+    // undefined მნიშვნელობები გაიფილტრება generateApiCacheKey-ში
+  }
+  const cacheKey = cacheService.generateApiCacheKey('external-items', queryParamsForCache);
+
+  // --- DB2.1: Try to get data from cache ---
+  // ვვარაუდობთ, რომ ქეშში ვინახავთ იმავე სტრუქტურის ობიექტს, რასაც API აბრუნებს
+  type CachedExternalResponse = {
+    items: LocalItem[];
+    totalResultsFromSource: number;
+    sourceApi: string; // ან 'foursquare'
+    requestParams: { limit: number; offset: number };
+    // დაამატე სხვა მეტამონაცემები, თუ საჭიროა
+  };
+  const cachedData = cacheService.get<CachedExternalResponse>(cacheKey);
+
+  if (cachedData) {
+    // --- DB2.1: Cache Hit ---
+    console.log(`[API /api/external/items] Cache HIT for key: ${cacheKey}`);
+    return res.status(200).json({
+      ...cachedData, // ვაბრუნებთ ქეშირებულ მონაცემებს
+      source: 'cache', // ვუთითებთ, რომ მონაცემები ქეშიდანაა
+    });
+  }
+
+  // --- DB2.1: Cache Miss ---
+  console.log(`[API /api/external/items] Cache MISS for key: ${cacheKey}. Fetching from Foursquare.`);
+
+  // ვალიდაციის ლოგიკა (იგივე რჩება)
+  const { location, term, latitude, longitude, limit, offset, categories } = req.query;
+  if (!location && (!latitude || !longitude)) { /* ... error handling ... */ 
+    return res.status(400).json({ message: 'Missing required query parameters...', code: 'MISSING_LOCATION_PARAMS'});
+  }
+  if ((latitude || longitude) && (!isValidNumber(latitude as string) || !isValidNumber(longitude as string))) { /* ... error handling ... */ 
+    return res.status(400).json({ message: 'Invalid latitude/longitude format...', code: 'INVALID_COORDINATES'});
+  }
+  // ... (სხვა ვალიდაციები limit, offset-თვის იგივე რჩება) ...
+  const parsedLimit = limit ? parseInt(limit as string, 10) : 20;
+  if (parsedLimit < 1 || parsedLimit > 50) { /* ... error handling ... */ 
+    return res.status(400).json({ message: 'Limit must be between 1 and 50.', code: 'LIMIT_OUT_OF_BOUNDS'});
+  }
+  const parsedOffset = offset ? parseInt(offset as string, 10) : 0;
+   if (parsedOffset < 0) { /* ... error handling ... */ 
+    return res.status(400).json({ message: 'Offset must be non-negative.', code: 'NEGATIVE_OFFSET'});
+  }
+
+
+  let searchParams: FoursquareSearchParams;
+  if (latitude && longitude) {
+    const parsedLat = parseFloat(latitude as string);
+    const parsedLon = parseFloat(longitude as string);
+    if (parsedLat < -90 || parsedLat > 90 || parsedLon < -180 || parsedLon > 180) { /* ... error handling ... */ 
+        return res.status(400).json({ message: 'Invalid coordinate range.', code: 'INVALID_COORDINATE_RANGE'});
+    }
+    searchParams = { near: `${parsedLat},${parsedLon}`, limit: parsedLimit };
+  } else if (location) {
+    const trimmedLocation = (location as string).trim();
+    if (trimmedLocation.length === 0) { /* ... error handling ... */ 
+        return res.status(400).json({ message: 'Location parameter cannot be empty.', code: 'EMPTY_LOCATION'});
+    }
+    searchParams = { near: trimmedLocation, limit: parsedLimit };
+  } else {
+    return res.status(400).json({ message: 'Location validation failed.', code: 'LOCATION_VALIDATION_ERROR'});
+  }
+
+  if (term) { 
+    const trimmedTerm = (term as string).trim();
+    if(trimmedTerm.length === 0) return res.status(400).json({message: 'Term parameter cannot be empty.', code: 'EMPTY_TERM'});
+    searchParams.query = trimmedTerm; 
+  }
+  if (categories) { 
+    const trimmedCategories = (categories as string).trim();
+    if(trimmedCategories.length === 0) return res.status(400).json({message: 'Categories parameter cannot be empty.', code: 'EMPTY_CATEGORIES'});
+    searchParams.categories = trimmedCategories; 
+  }
+  // Offset-ის დამატება, თუ FoursquareSearchParams ამას ითვალისწინებს
+  // Foursquare-ის API რეალურად offset-ს არ იყენებს search ენდფოინთზე, არამედ cursor-ს შემდეგი გვერდისთვის.
+  // ამ ეტაპზე offset-ს არ ვიყენებთ Foursquare-თან. თუ პაგინაცია დაგვჭირდება, Foursquare-ის cursor-ზე უნდა გადავიდეთ.
+
+  try {
+    const foursquareApiResponse = await searchFoursquare(searchParams);
+
+    if (!foursquareApiResponse || !foursquareApiResponse.results) {
+      console.error('[API /api/external/items] Invalid response from Foursquare service');
+      return res.status(502).json({ message: 'Invalid response from external service.', code: 'INVALID_EXTERNAL_RESPONSE', source: 'foursquare' });
+    }
+
+    const transformedItems: LocalItem[] = transformFoursquareResponseToLocalItems(foursquareApiResponse);
+    
+    const responseData = {
+      items: transformedItems,
+      totalResultsFromSource: foursquareApiResponse.results.length, // ეს არის მიღებული შედეგების რაოდენობა ამ მოთხოვნაზე, არა მთლიანი რაოდენობა
+      sourceApi: 'foursquare', // ან source: 'foursquare' როგორც ქვემოთ
+      requestParams: { // შევინახოთ მოთხოვნის პარამეტრებიც ქეშში
+        limit: parsedLimit,
+        offset: parsedOffset, // თუმცა offset-ს Foursquare პირდაპირ არ იყენებს
+      }
+    };
+
+    // --- DB2.1: Store data in cache ---
+    // YOUR_CHOSEN_TTL_IN_SECONDS, მაგალითად 3600 (1 საათი)
+    cacheService.set(cacheKey, responseData, 3600); 
+    
+    console.log(`[API /api/external/items] Successfully transformed ${transformedItems.length} items from Foursquare response`);
+    
+    return res.status(200).json({
+      ...responseData,
+      source: 'foursquare', // ან 'live'
+    });
+
+  } catch (error) {
+    // ... (არსებული შეცდომების დამუშავების ლოგიკა იგივე რჩება) ...
+    console.error('[API /api/external/items] Error occurred:', error);
+    // ... (დააბრუნე შესაბამისი შეცდომის პასუხი) ...
+    // მაგალითად:
+    if (error instanceof Error && error.message.startsWith('Foursquare API request failed')) {
+        // ... Foursquare API-ს სპეციფიკური შეცდომის დამუშავება ...
+        return res.status(502).json({ message: `External API error: ${error.message}`, code: 'EXTERNAL_API_ERROR', source: 'foursquare'});
+    }
+    return res.status(500).json({ message: 'Failed to fetch external items due to an internal server error.', code: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+// Extract query parameters
   const {
     location,
     term,
