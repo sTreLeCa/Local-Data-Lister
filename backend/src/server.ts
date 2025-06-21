@@ -94,7 +94,7 @@ app.get('/api/local-items', async (req: Request, res: Response) => {
     // --- ADDED FINAL CHECK ---
     if (!Array.isArray(items)) {
       console.error("CRITICAL BACKEND ERROR: local-items.json did not parse to an array. Parsed value:", items);
-      return res.status(500).json({ message: "Data source is corrupt." });
+      return res.status(500).json({ message: "Data source is corrupt.", code: 'INVALID_DATA_FORMAT' });
     }
     
     console.log(`[API /api/local-items] Successfully returned ${items.length} local items`);

@@ -77,7 +77,7 @@ describe('GET /api/local-items', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({
-      message: 'Error fetching local items data.',
+      message: 'Server error: Simulated file system error',
       code: 'DATA_READ_ERROR'
     });
     expect(mockedFsAccess).toHaveBeenCalledWith(dataFilePath);
@@ -125,7 +125,7 @@ describe('GET /api/local-items', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({
-      message: 'Invalid data format: expected array.',
+      message: 'Data source is corrupt.',
       code: 'INVALID_DATA_FORMAT'
     });
     expect(mockedFsAccess).toHaveBeenCalledWith(dataFilePath);
