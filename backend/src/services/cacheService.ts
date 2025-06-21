@@ -1,6 +1,8 @@
 // backend/src/services/cacheService.ts
 import NodeCache from 'node-cache';
 
+// stdTTL: სტანდარტული სიცოცხლის ხანგრძლივობა წამებში (default Time To Live). 3600 წამი = 1 საათი.
+// checkperiod: რამდენად ხშირად უნდა შემოწმდეს და წაიშალოს ვადაგასული ქეშის ჩანაწერები (წამებში). 120 წამი = 2 წუთი.
 const appCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 
 console.log('Cache service initialized with default TTL of 1 hour.');
@@ -18,44 +20,6 @@ export const get = <T>(key: string): T | undefined => {
     console.log(`[CACHE] MISS for key: ${key}`);
   }
   return value;
-};
-
-// backend/src/services/cacheService.ts
-// ... (NodeCache ინსტალაცია და წინა ფუნქციები) ...
-
-/**
- * Generates a deterministic cache key for API requests.
- * Ensures that the order of parameters or case does not affect the key.
- * @param baseIdentifier A string to identify the API endpoint (e.g., 'external-items').
- * @param params An object of query parameters.
- * @returns A string representing the cache key.
- */
-export const generateApiCacheKey = (
-  baseIdentifier: string,
-  params: Record<string, string | number | undefined>
-): string => {
-  const significantParams: Record<string, string> = {};
-
-  // Filter, normalize, and collect significant parameters
-  Object.keys(params).forEach(key => {
-    const value = params[key];
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      // Normalize: convert to string, trim, and lowercase
-      significantParams[key.toLowerCase().trim()] = String(value).toLowerCase().trim();
-    }
-  });
-
-  // Sort keys alphabetically to ensure deterministic order
-  const sortedKeys = Object.keys(significantParams).sort();
-
-  // Build the key string
-  const paramString = sortedKeys
-    .map(key => `${key}=${significantParams[key]}`)
-    .join(':'); // Use ':' or another delimiter
-
-  const cacheKey = `${baseIdentifier}:${paramString}`;
-  console.log(`[CACHE] Generated cache key: ${cacheKey} for params:`, params);
-  return cacheKey;
 };
 
 /**
@@ -110,5 +74,47 @@ export const flush = (): void => {
   console.log('[CACHE] FLUSHED all cache.');
 };
 
-// არ არის საჭირო default export, რადგან ფუნქციებს ცალ-ცალკე ვაექსპორტებთ.
-// export default appCache; 
+/**
+ * Generates a deterministic cache key for API requests.
+ * Ensures that the order of parameters or case does not affect the key.
+ * @param baseIdentifier A string to identify the API endpoint (e.g., 'external-items').
+ * @param params An object of query parameters.
+ * @returns A string representing the cache key.
+ */
+export const generateApiCacheKey = (
+  baseIdentifier: string,
+  params: Record<string, string | number | undefined>
+): string => {
+  const significantParams: Record<string, string> = {};
+
+  // Filter, normalize, and collect significant parameters
+  Object.keys(params).forEach(paramKey => { // შევცვალე key -> paramKey, რომ არ დაემთხვეს გარე ცვლადს
+    const value = params[paramKey];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      // Normalize: convert to string, trim, and lowercase
+      significantParams[paramKey.toLowerCase().trim()] = String(value).toLowerCase().trim();
+    }
+  });
+
+  // Sort keys alphabetically to ensure deterministic order
+  const sortedKeys = Object.keys(significantParams).sort();
+
+  // Build the key string
+  const paramString = sortedKeys
+    .map(sortedKey => `${sortedKey}=${significantParams[sortedKey]}`) // შევცვალე key -> sortedKey
+    .join(':'); // Use ':' or another delimiter
+
+  const cacheKeyResult = `${baseIdentifier}:${paramString}`; // შევცვალე cacheKey -> cacheKeyResult, რომ არ დაემთხვეს გარე ცვლადს
+  console.log(`[CACHE] Generated cache key: ${cacheKeyResult} for params:`, params);
+  return cacheKeyResult;
+};
+
+/**
+ * Returns an array of all keys currently in the cache.
+ * @returns An array of strings representing the cache keys.
+ */
+export const keys = (): string[] => {
+  const currentKeys = appCache.keys();
+  console.log(`[CACHE] KEYS: ${currentKeys.length > 0 ? currentKeys.join(', ') : '(empty)'}`);
+  return currentKeys;
+};
