@@ -1,0 +1,44 @@
+// backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// This is the section for "Users" (the people playing with the app)
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  favorites UserFavorite[]
+}
+
+// This is the section for "Items" (the cool places people can like)
+model LocalItem {
+  id            String @id
+  type          String
+  name          String
+  description   String?
+  locationJson  Json
+  imageUrl      String?
+  sourceApi     String
+  favoritedBy   UserFavorite[]
+}
+
+// This is a special list that says WHICH user likes WHICH item.
+model UserFavorite {
+  userId      String
+  localItemId String
+  favoritedAt DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  localItem LocalItem @relation(fields: [localItemId], references: [id], onDelete: Cascade)
+
+  @@id([userId, localItemId])
+}
