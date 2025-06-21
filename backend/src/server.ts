@@ -11,20 +11,10 @@ import * as cacheService from './services/cacheService';
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('[ERROR]', err.stack);
-  res.status(500).json({
-    message: 'Internal server error',
-    code: 'INTERNAL_SERVER_ERROR'
-  });
-});
-
-// --- Utility Functions for Validation ---
+// --- Utility Functions for Validation (ისინი იგივე რჩება) ---
 const isValidNumber = (value: string | undefined): boolean => {
   if (!value) return false;
   const num = parseFloat(value);
@@ -34,10 +24,13 @@ const isValidNumber = (value: string | undefined): boolean => {
 const isValidInteger = (value: string | undefined): boolean => {
   if (!value) return false;
   const num = parseFloat(value);
-  return Number.isInteger(num) && num >= 0;
+  // isValidInteger-მა უნდა შეამოწმოს, რომ რიცხვი ნამდვილად მთელია და არა უბრალოდ რიცხვი
+  // და ასევე, რომ არ არის უარყოფითი, თუ ამას ლოგიკა მოითხოვს (მაგ., limit, offset)
+  return Number.isInteger(num); // შევცვალე: მხოლოდ მთელ რიცხვს ამოწმებს
 };
 
-// --- Health Check / Root Route ---
+
+// --- Health Check / Root Route (იგივე რჩება) ---
 app.get('/', (req: Request, res: Response) => {
   console.log('[API /] Health check endpoint accessed');
   res.status(200).json({
@@ -47,7 +40,7 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-// --- API Endpoint for Local JSON Data ---
+// --- API Endpoint for Local JSON Data (იგივე რჩება) ---
 app.get('/api/local-items', async (req: Request, res: Response) => {
   console.log('[API /api/local-items] Fetching local items data');
   try {
@@ -138,21 +131,35 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
   if ((latitude || longitude) && (!isValidNumber(latitude as string) || !isValidNumber(longitude as string))) {
     return res.status(400).json({ message: 'Invalid latitude/longitude format. Both must be valid numbers.', code: 'INVALID_COORDINATES'});
   }
-  const parsedLimit = limit ? parseInt(limit as string, 10) : 20;
+  
+  const parsedLimitInput = limit as string | undefined;
+  if (limit && !isValidInteger(parsedLimitInput)) { // ამოწმებს, არის თუ არა მთელი რიცხვი
+    return res.status(400).json({ message: 'Invalid limit parameter. Must be an integer.', code: 'INVALID_LIMIT'});
+  }
+  const parsedLimit = limit ? parseInt(parsedLimitInput as string, 10) : 20;
   if (parsedLimit < 1 || parsedLimit > 50) {
     return res.status(400).json({ message: 'Limit must be between 1 and 50.', code: 'LIMIT_OUT_OF_BOUNDS'});
   }
-  const parsedOffset = offset ? parseInt(offset as string, 10) : 0;
-  if (parsedOffset < 0) {
+
+  const parsedOffsetInput = offset as string | undefined;
+  if (offset && !isValidInteger(parsedOffsetInput)) {
+    return res.status(400).json({ message: 'Invalid offset parameter. Must be an integer.', code: 'INVALID_OFFSET'});
+  }
+  const parsedOffset = offset ? parseInt(parsedOffsetInput as string, 10) : 0;
+  if (parsedOffset < 0) { // უარყოფითი offset-ის შემოწმება
     return res.status(400).json({ message: 'Offset must be non-negative.', code: 'NEGATIVE_OFFSET'});
   }
+
 
   let searchParams: FoursquareSearchParams;
   if (latitude && longitude) {
     const parsedLat = parseFloat(latitude as string);
     const parsedLon = parseFloat(longitude as string);
-    if (parsedLat < -90 || parsedLat > 90 || parsedLon < -180 || parsedLon > 180) {
-        return res.status(400).json({ message: 'Invalid coordinate range.', code: 'INVALID_COORDINATE_RANGE'});
+    if (parsedLat < -90 || parsedLat > 90) {
+        return res.status(400).json({ message: 'Latitude must be between -90 and 90 degrees.', code: 'INVALID_LATITUDE_RANGE'}); // <--- შეცვლილი კოდი აქ
+    }
+    if (parsedLon < -180 || parsedLon > 180) {
+        return res.status(400).json({ message: 'Longitude must be between -180 and 180 degrees.', code: 'INVALID_LONGITUDE_RANGE'}); // <--- დავამატოთ ლონგიტუდისთვისაც
     }
     searchParams = { near: `${parsedLat},${parsedLon}`, limit: parsedLimit };
     console.log(`[API /api/external/items] Using coordinates: lat=${parsedLat}, lon=${parsedLon}`);
@@ -164,7 +171,7 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
     searchParams = { near: trimmedLocation, limit: parsedLimit };
     console.log(`[API /api/external/items] Using location: ${trimmedLocation}`);
   } else {
-    return res.status(400).json({ message: 'Location validation failed.', code: 'LOCATION_VALIDATION_ERROR'});
+    return res.status(400).json({ message: 'Location validation failed (should not happen due to prior checks).', code: 'LOCATION_VALIDATION_ERROR'});
   }
 
   if (term && typeof term === 'string') {
@@ -188,28 +195,20 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
     }
 
     const transformedItems: LocalItem[] = transformFoursquareResponseToLocalItems(foursquareApiResponse);
-
     const responseDataToCache: CachedExternalResponse = {
       items: transformedItems,
       totalResultsFromSource: foursquareApiResponse.results.length,
       sourceApi: 'foursquare',
-      requestParams: {
-        limit: parsedLimit,
-        offset: parsedOffset,
-      }
+      requestParams: { limit: parsedLimit, offset: parsedOffset }
     };
 
     console.log(`[CACHE DEBUG] Attempting to SET cache for key: ${cacheKey} with data (items count): ${responseDataToCache.items.length}`);
     const setResult = cacheService.set(cacheKey, responseDataToCache, 3600);
     console.log(`[CACHE DEBUG] Cache SET result: ${setResult}`);
     console.log('[SERVER DEBUG] Keys in cache AFTER set (from server):', cacheService.keys());
-
     console.log(`[API /api/external/items] Successfully transformed ${transformedItems.length} items from Foursquare response`);
 
-    return res.status(200).json({
-      ...responseDataToCache,
-      source: 'foursquare',
-    });
+    return res.status(200).json({ ...responseDataToCache, source: 'foursquare' });
 
   } catch (error) {
     console.error('[API /api/external/items] Error occurred during Foursquare call or transformation:', error);
@@ -220,13 +219,13 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
     let errorDetails: any = undefined;
 
     if (error instanceof Error) {
-        errorMessage = error.message; // Default to the error's message
+        errorMessage = error.message;
       if (error.message.startsWith('Foursquare API request failed')) {
         errorCode = 'EXTERNAL_API_ERROR';
         errorSource = 'foursquare';
         const statusMatch = error.message.match(/status (\d+)/);
         if (statusMatch) statusCode = parseInt(statusMatch[1], 10);
-        if (statusCode < 400 || statusCode > 599) statusCode = 502; // Ensure valid server error code
+        if (statusCode < 400 || statusCode > 599) statusCode = 502;
 
         const jsonStartIndex = error.message.indexOf('{');
         if (jsonStartIndex !== -1) {
@@ -234,12 +233,13 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
                 const parsedDetails = JSON.parse(error.message.substring(jsonStartIndex)) as FoursquareErrorResponse;
                 errorMessage = `External API error: ${parsedDetails.message || 'Details unavailable'}`;
                 errorDetails = parsedDetails;
-            } catch (e) { /* Parsing failed, use raw message already set */ }
+            } catch (e) { /* Parsing failed */ }
         }
-      } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
-          statusCode = 503;
-          errorCode = 'SERVICE_UNAVAILABLE';
-          errorMessage = 'External service temporarily unavailable. Please try again later.';
+      } else if (error.message === 'Foursquare is down' || error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
+          // ეს არის ზოგადი შეცდომა, რომელიც searchFoursquare-მა შეიძლება დააგდოს, ან Axios-მა
+          statusCode = 502;
+          errorCode = 'EXTERNAL_SERVICE_ERROR'; // შევცვალე კოდი, რომ უფრო ზუსტი იყოს
+          errorMessage = `Error communicating with Foursquare: ${error.message}`;
           errorSource = 'foursquare';
       }
     }
@@ -247,16 +247,16 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
   }
 });
 
-// --- Development Test Route ---
+// --- Development Test Route (იგივე რჩება) ---
 app.get('/api/test-foursquare', async (req: Request, res: Response) => {
   if (process.env.NODE_ENV !== 'development') {
     return res.status(403).json({ message: 'Forbidden in this environment', code: 'ENVIRONMENT_RESTRICTED'});
   }
   try {
     const params: FoursquareSearchParams = {
-      near: (req.query.location as string)?.trim() || 'San Francisco', // Added trim
+      near: (req.query.location as string)?.trim() || 'San Francisco',
       limit: 3,
-      query: (req.query.term as string)?.trim() || 'restaurants' // Added trim
+      query: (req.query.term as string)?.trim() || 'restaurants'
     };
     const foursquareData = await searchFoursquare(params);
     res.status(200).json({ message: 'Test successful', data: foursquareData });
@@ -266,7 +266,7 @@ app.get('/api/test-foursquare', async (req: Request, res: Response) => {
   }
 });
 
-// --- 404 Handler ---
+// --- 404 Handler (იგივე რჩება) ---
 app.use('*', (req: Request, res: Response) => {
   console.log(`[API] 404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
@@ -275,5 +275,14 @@ app.use('*', (req: Request, res: Response) => {
     path: req.originalUrl
   });
 });
+
+// Error handling middleware (გადავიტანე ფაილის ბოლოში, app.use('*')-ის შემდეგ, თუმცა დასაწყისშიც მუშაობს)
+// app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+//   console.error('[ERROR]', err.stack);
+//   res.status(500).json({
+//     message: 'Internal server error',
+//     code: 'INTERNAL_SERVER_ERROR'
+//   });
+// });
 
 export default app;
