@@ -1,7 +1,7 @@
 // frontend/src/pages/MyFavoritesPage.tsx
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { fetchFavorites } from '../api/favoritesService';
+import { fetchFavorites, removeFavorite  } from '../api/favoritesService';
 import { LocalItemCard } from '../components/LocalItemCard';
 import type { LocalItem } from '@local-data/types';
 
@@ -30,6 +30,24 @@ export const MyFavoritesPage = () => {
         }
     }, [isAuthenticated, token]); // Re-run if auth state changes
 
+    const handleUnfavorite = async (itemToRemove: LocalItem) => {
+        if (!token) return; // Should not happen if user is authenticated
+
+        try {
+            // Call the API to remove the favorite from the backend
+            await removeFavorite(token, itemToRemove.id);
+
+            // Update the frontend state to remove the item from the list instantly
+            // This provides a fast, responsive UI without needing a page reload
+            setFavorites(currentFavorites => 
+                currentFavorites.filter(item => item.id !== itemToRemove.id)
+            );
+        } catch (err: any) {
+            console.error("Failed to unfavorite item:", err);
+            alert(`Error: ${err.message}`);
+        }
+    };
+
     if (!isAuthenticated()) {
         return <h2>Please log in to view your favorites.</h2>;
     }
@@ -48,7 +66,14 @@ export const MyFavoritesPage = () => {
             {favorites.length > 0 ? (
                 <div className="items-list-container">
                     {favorites.map(item => (
-                        <LocalItemCard key={item.id} item={item} />
+                        // --- 3. Pass the new props to the LocalItemCard ---
+                        <LocalItemCard 
+                            key={item.id} 
+                            item={item}
+                            isAuth={true} // We know the user is authenticated on this page
+                            isFavorited={true} // Every item on this page is favorited by definition
+                            onToggleFavorite={handleUnfavorite} // Pass the handler function
+                        />
                     ))}
                 </div>
             ) : (

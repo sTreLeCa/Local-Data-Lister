@@ -21,7 +21,13 @@ router.get('/', async (req: AuthRequest, res) => {
       orderBy: { favoritedAt: 'desc' }
     });
 
-    const items = userFavorites.map(fav => fav.localItem);
+    const items = userFavorites.map(fav => {
+    const { locationJson, ...restOfItem } = fav.localItem;
+    return {
+        ...restOfItem, 
+        location: locationJson
+    };
+});
     res.status(200).json(items);
   } catch (error) {
     res.status(500).json({ message: 'Could not get your favorites.' });

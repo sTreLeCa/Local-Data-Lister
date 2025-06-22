@@ -1,0 +1,11 @@
+.popular-item-wrapper {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.favorite-count {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: #6f42c1; /* A nice purple to match our buttons */
+  margin: 0 0 5px 15px;
+}

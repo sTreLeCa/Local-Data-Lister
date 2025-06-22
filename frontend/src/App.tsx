@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { MyFavoritesPage } from './pages/MyFavoritesPage';
+import { DashboardPage } from './pages/DashboardPage';
 
 export default function App() {
   return (
@@ -17,7 +18,7 @@ export default function App() {
 
         {/* Placeholders for your next tasks */}
          <Route path="/favorites" element={<MyFavoritesPage />} />
-        <Route path="/dashboard" element={<h2>Dashboard (TODO)</h2>} />
+         <Route path="/dashboard" element={<DashboardPage />} />
         
         {/* A catch-all route for any undefined paths */}
         <Route path="*" element={<h2>404: Page Not Found</h2>} />
