@@ -3,7 +3,7 @@ import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App';
-import { fetchLocalItems, fetchExternalItems } from './services/localItemService';
+import { fetchLocalItems, fetchExternalItems } from './api/localItemService';
 import type { LocalItem, Restaurant, Park } from '@local-data/types';
 
 vi.mock('./services/localItemService', () => ({
