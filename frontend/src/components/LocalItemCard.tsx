@@ -4,9 +4,16 @@ import styles from './LocalItemCard.module.css';
 
 interface LocalItemCardProps {
   item: LocalItem;
+   isAuth?: boolean;
+  isFavorited?: boolean;
+  onToggleFavorite?: (item: LocalItem) => void;
 }
 
-export const LocalItemCard: React.FC<LocalItemCardProps> = ({ item }) => {
+export const LocalItemCard: React.FC<LocalItemCardProps> = ({ 
+  item, 
+  isAuth, 
+  isFavorited, 
+  onToggleFavorite }) => {
   const formatLocationDisplay = (): string => {
     const { street, city, state, zipcode } = item.location;
     const parts: string[] = [];
@@ -64,9 +71,21 @@ export const LocalItemCard: React.FC<LocalItemCardProps> = ({ item }) => {
 
   const mapUrl = `https://www.google.com/maps?q=${item.location.latitude},${item.location.longitude}`;
 
-  return (
+ return (
     <div className={styles.card}>
+      {/* --- NEW FAVORITE BUTTON LOGIC --- */}
+      {isAuth && onToggleFavorite && (
+        <button
+          onClick={() => onToggleFavorite(item)}
+          className={styles.favoriteButton}
+          aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          {isFavorited ? '❤️' : '🤍'}
+        </button>
+      )}
+
       <h3 className={styles.name}>{item.name}</h3>
+      {/* ... rest of the JSX is the same ... */}
       <p className={styles.infoItem}>Type: {item.type}</p>
       <p className={styles.description}>{item.description}</p>
       {displayLocationString && <p className={styles.infoItem}>Location: {displayLocationString}</p>}

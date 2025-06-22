@@ -4,6 +4,7 @@ import { MainLayout } from './layouts/MainLayout';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { MyFavoritesPage } from './pages/MyFavoritesPage';
 
 export default function App() {
   return (
@@ -15,7 +16,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
 
         {/* Placeholders for your next tasks */}
-        <Route path="/favorites" element={<h2>My Favorites (TODO)</h2>} />
+         <Route path="/favorites" element={<MyFavoritesPage />} />
         <Route path="/dashboard" element={<h2>Dashboard (TODO)</h2>} />
         
         {/* A catch-all route for any undefined paths */}

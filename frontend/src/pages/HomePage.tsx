@@ -1,140 +1,122 @@
 import { useEffect, useState, useMemo } from 'react';
-import '../App.css';
 import type { LocalItem } from '@local-data/types';
 import { LocalItemCard } from '../components/LocalItemCard';
 import { fetchLocalItems, fetchExternalItems } from '../api/localItemService';
+import { useAuthStore } from '../store/authStore';
+import { fetchFavorites, addFavorite, removeFavorite } from '../api/favoritesService';
 
 export function HomePage() {
-  // --- STATE FOR INITIAL STAGE (SIMULATED DATA) ---
+  // --- State for Data & UI ---
   const [localItems, setLocalItems] = useState<LocalItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filterTerm, setFilterTerm] = useState<string>('');
-
-  // --- STATE FOR ADVANCED STAGE (EXTERNAL API) ---
-  const [location, setLocation] = useState<string>('New York');
-  const [externalTerm, setExternalTerm] = useState<string>('food');
   const [externalItems, setExternalItems] = useState<LocalItem[]>([]);
-  const [isExternalLoading, setIsExternalLoading] = useState<boolean>(false);
-  const [externalError, setExternalError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isExternalLoading, setIsExternalLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // --- State for Search & Filtering ---
+  const [filterTerm, setFilterTerm] = useState('');
+  const [location, setLocation] = useState('New York');
+  const [externalTerm, setExternalTerm] = useState('food');
+  
+  // --- State for Authentication & User Favorites ---
+  const { token, isAuthenticated } = useAuthStore();
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+  // Effect to fetch initial local data once on component mount
   useEffect(() => {
-    console.log('[DEBUG] App mounted. Fetching local items...');
-    const loadItems = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await fetchLocalItems();
-        console.log('[DEBUG] Local items fetched:', data);
-        setLocalItems(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('[DEBUG] Error fetching local items:', err);
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('An unknown error occurred while fetching items.');
-        }
-        setLocalItems([]);
-      } finally {
-        setIsLoading(false);
-        console.log('[DEBUG] Finished loading local items.');
-      }
-    };
-    loadItems();
+    fetchLocalItems()
+      .then(setLocalItems)
+      .catch(err => setError(err.message))
+      .finally(() => setIsLoading(false));
   }, []);
 
-  const filteredLocalItems = useMemo(() => {
-    console.log('[DEBUG] Filtering localItems with term:', filterTerm);
-    if (!Array.isArray(localItems)) {
-      console.error('[DEBUG] localItems is not an array!', localItems);
-      return [];
+  // Effect to fetch user's favorites whenever their login status changes
+  useEffect(() => {
+    if (isAuthenticated() && token) {
+      fetchFavorites(token)
+        .then(favs => {
+          // Storing only IDs in a Set is highly efficient for checking if an item is favorited
+          setFavoriteIds(new Set(favs.map(fav => fav.id)));
+        })
+        .catch(err => console.error("Could not fetch favorites:", err));
+    } else {
+      // Clear favorites when the user logs out
+      setFavoriteIds(new Set());
     }
-    if (!filterTerm.trim()) return localItems;
+  }, [token, isAuthenticated]);
 
-    const lowerSearchTerm = filterTerm.toLowerCase();
-    const filtered = localItems.filter(item => {
-      if (!item || typeof item.name !== 'string') return false;
-      if (item.name.toLowerCase().includes(lowerSearchTerm)) return true;
-      if (item.description.toLowerCase().includes(lowerSearchTerm)) return true;
-      switch (item.type) {
-        case 'Restaurant':
-          return item.cuisineType.toLowerCase().includes(lowerSearchTerm);
-        case 'Park':
-          return item.parkType.toLowerCase().includes(lowerSearchTerm) ||
-            item.amenities?.some(a => a.toLowerCase().includes(lowerSearchTerm));
-        case 'Event':
-          return item.eventType.toLowerCase().includes(lowerSearchTerm);
-        default:
-          return false;
-      }
-    });
-
-    console.log('[DEBUG] Filtered local items:', filtered);
-    return filtered;
-  }, [localItems, filterTerm]);
-
+  // Handler for the external API search
   const handleExternalSearch = async () => {
-    console.log('[DEBUG] External search triggered with:', { location, externalTerm });
     setIsExternalLoading(true);
-    setExternalItems([]);
-    setExternalError(null);
+    setError(null);
+    fetchExternalItems({ location, query: externalTerm })
+      .then(setExternalItems)
+      .catch(err => setError(err.message))
+      .finally(() => setIsExternalLoading(false));
+  };
+  
+  // Handler for toggling an item's favorite status
+  const handleToggleFavorite = async (item: LocalItem) => {
+    if (!isAuthenticated() || !token) {
+      alert("Please log in to add items to your favorites.");
+      return;
+    }
+
+    const isCurrentlyFavorited = favoriteIds.has(item.id);
 
     try {
-      const data = await fetchExternalItems({ location, query: externalTerm });
-      console.log('[DEBUG] External items fetched:', data);
-      setExternalItems(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('[DEBUG] Error fetching external items:', err);
-      if (err instanceof Error) {
-        setExternalError(err.message);
+      if (isCurrentlyFavorited) {
+        // --- Remove from favorites ---
+        await removeFavorite(token, item.id);
+        setFavoriteIds(prevIds => {
+          const newIds = new Set(prevIds);
+          newIds.delete(item.id);
+          return newIds;
+        });
       } else {
-        setExternalError('An unknown error occurred during external search.');
+        // --- Add to favorites ---
+        await addFavorite(token, item);
+        setFavoriteIds(prevIds => {
+          const newIds = new Set(prevIds);
+          newIds.add(item.id);
+          return newIds;
+        });
       }
-    } finally {
-      setIsExternalLoading(false);
-      console.log('[DEBUG] Finished loading external items.');
+    } catch (err: any) {
+      alert(`Error updating favorites: ${err.message}`);
+      console.error(err);
     }
   };
 
-  // Debug all state at render time
-  console.log('[DEBUG] App render cycle triggered.');
-  console.log('[DEBUG] State summary:', {
-    isLoading,
-    error,
-    localItemsCount: localItems.length,
-    filterTerm,
-    filteredLocalItemsCount: filteredLocalItems.length,
-    externalItemsCount: externalItems.length,
-    isExternalLoading,
-    externalError,
-    location,
-    externalTerm
-  });
+  // Memoized logic to filter the local items list based on the filter input
+  const filteredLocalItems = useMemo(() => {
+    if (!filterTerm.trim()) return localItems;
+    const lowerSearchTerm = filterTerm.toLowerCase();
+    return localItems.filter(item => 
+      item.name.toLowerCase().includes(lowerSearchTerm) || 
+      item.description.toLowerCase().includes(lowerSearchTerm)
+    );
+  }, [localItems, filterTerm]);
+
+  // Combine external results and filtered local results into a single list for rendering
+  const itemsToDisplay = externalItems.length > 0 ? externalItems : filteredLocalItems;
 
   return (
-    <div className="App">
-      <h1>Local Information Viewer</h1>
-
+    <>
       <div className="search-container">
         <h2>Search Real-World Data (via Foursquare API)</h2>
         <input
           type="text"
           placeholder="Enter a location (e.g., Chicago)"
           value={location}
-          onChange={(e) => {
-            console.log('[DEBUG] Location changed to:', e.target.value);
-            setLocation(e.target.value);
-          }}
+          onChange={(e) => setLocation(e.target.value)}
           className="search-input"
         />
         <input
           type="text"
           placeholder="Enter a search term (e.g., park, pizza)"
           value={externalTerm}
-          onChange={(e) => {
-            console.log('[DEBUG] External search term changed to:', e.target.value);
-            setExternalTerm(e.target.value);
-          }}
+          onChange={(e) => setExternalTerm(e.target.value)}
           className="search-input"
         />
         <button
@@ -146,50 +128,40 @@ export function HomePage() {
         </button>
       </div>
 
-      <div className="items-list-container">
-        {isExternalLoading && <p>Loading external data...</p>}
-        {externalError && <p style={{ color: 'red' }}>Error: {externalError}</p>}
-        {!isExternalLoading && !externalError && externalItems.length > 0 && (
-          <>
-            <h3>External Search Results</h3>
-            {externalItems.map(item => {
-              console.log('[DEBUG] Rendering external LocalItemCard:', item);
-              return <LocalItemCard key={item.id} item={item} />;
-            })}
-          </>
-        )}
-      </div>
-
       <hr style={{ margin: '40px 0' }} />
 
       <div className="search-container">
-        <h2>Filter Simulated Local Data</h2>
+        <h2>Filter Local Data</h2>
         <input
           type="text"
           placeholder="Filter the list below..."
           value={filterTerm}
-          onChange={(e) => {
-            console.log('[DEBUG] Filter term changed to:', e.target.value);
-            setFilterTerm(e.target.value);
-          }}
+          onChange={(e) => setFilterTerm(e.target.value)}
           className="search-input"
         />
       </div>
-
+      
       <div className="items-list-container">
-        {isLoading ? (
-          <p>Loading local items...</p>
-        ) : error ? (
-          <p style={{ color: 'red' }}>Error: {error}</p>
-        ) : filteredLocalItems.length > 0 ? (
-          filteredLocalItems.map(item => {
-            console.log('[DEBUG] Rendering local LocalItemCard:', item);
-            return <LocalItemCard key={item.id} item={item} />;
-          })
-        ) : (
-          <p>No items to display.</p>
+        {/* --- Unified Loading and Error States --- */}
+        {(isLoading || isExternalLoading) && <p>Loading items...</p>}
+        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+        
+        {/* --- Unified Rendering Logic --- */}
+        {!isLoading && !isExternalLoading && itemsToDisplay.map(item => (
+          <LocalItemCard 
+            key={item.id} 
+            item={item}
+            isAuth={isAuthenticated()}
+            isFavorited={favoriteIds.has(item.id)}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        ))}
+
+        {/* --- Message for No Results --- */}
+        {!isLoading && !isExternalLoading && itemsToDisplay.length === 0 && !error && (
+            <p>No items to display. Try a new search or clear your filter.</p>
         )}
       </div>
-    </div>
+    </>
   );
 }

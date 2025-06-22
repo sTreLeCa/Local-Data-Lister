@@ -37,3 +37,13 @@
 .mapLink:hover {
   text-decoration: underline;
 }
+
+.favoriteButton {
+  float: right;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
