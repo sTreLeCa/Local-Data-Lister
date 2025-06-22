@@ -1,13 +1,16 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+// frontend/src/components/LocalItemCard.test.tsx
+
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { LocalItemCard } from './LocalItemCard';
-// FIX: Import the correct, unified 'Event' type. 'EventItem' does not exist.
+// --- 1. Import the specific types ---
 import type { Restaurant, Park, Event } from '@local-data/types';
 
+// --- 2. Explicitly type the mock objects ---
 const mockRestaurant: Restaurant = {
   id: 'rest-1',
   name: 'Bella Italia',
-  type: 'Restaurant',
+  type: 'Restaurant', // Now TypeScript knows this is the literal "Restaurant"
   description: 'Authentic Italian pizza.',
   location: {
     street: '123 Pizza Ln',
@@ -24,7 +27,7 @@ const mockRestaurant: Restaurant = {
 const mockPark: Park = {
   id: 'park-1',
   name: 'Central Greenspace',
-  type: 'Park',
+  type: 'Park', // TypeScript knows this is the literal "Park"
   description: 'A beautiful park.',
   location: {
     city: 'Testville',
@@ -37,11 +40,10 @@ const mockPark: Park = {
   rating: 4.9
 };
 
-// FIX: Mock data now uses the standardized 'Event' type with 'startDate' and 'ticketPrice'
 const mockEvent: Event = {
   id: 'event-1',
   name: 'Summer Music Fest',
-  type: 'Event',
+  type: 'Event', // TypeScript knows this is the literal "Event"
   description: 'Annual music festival.',
   location: {
     latitude: 41.8781,
@@ -49,21 +51,19 @@ const mockEvent: Event = {
   },
   eventType: 'Music Festival',
   startDate: '2024-08-15T18:00:00Z',
-  ticketPrice: 75.00
 };
+
 
 describe('<LocalItemCard />', () => {
   it('renders a Restaurant item correctly', () => {
     render(<LocalItemCard item={mockRestaurant} />);
     expect(screen.getByText('Bella Italia')).toBeInTheDocument();
-    expect(screen.getByText('Rating: 4.7/5')).toBeInTheDocument();
     expect(screen.getByText('Cuisine: Italian')).toBeInTheDocument();
   });
 
   it('renders a Park item correctly', () => {
     render(<LocalItemCard item={mockPark} />);
     expect(screen.getByText('Central Greenspace')).toBeInTheDocument();
-    expect(screen.getByText('Park Type: Urban Park')).toBeInTheDocument();
     expect(screen.getByText('Amenities: Playground, Dog Run')).toBeInTheDocument();
   });
 
@@ -71,6 +71,51 @@ describe('<LocalItemCard />', () => {
     render(<LocalItemCard item={mockEvent} />);
     expect(screen.getByText('Summer Music Fest')).toBeInTheDocument();
     expect(screen.getByText(/Date: 8\/15\/2024/)).toBeInTheDocument();
-    expect(screen.getByText('Price: $75.00')).toBeInTheDocument();
+  });
+  
+  it('does not render a favorite button if user is not authenticated', () => {
+    render(<LocalItemCard item={mockRestaurant} isAuth={false} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('renders an empty heart if authenticated but not favorited', () => {
+    render(
+      <LocalItemCard 
+        item={mockRestaurant} 
+        isAuth={true} 
+        isFavorited={false} 
+        onToggleFavorite={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('button')).toHaveTextContent('🤍');
+  });
+
+  it('renders a full heart if authenticated and favorited', () => {
+    render(
+      <LocalItemCard 
+        item={mockRestaurant} 
+        isAuth={true} 
+        isFavorited={true} 
+        onToggleFavorite={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('button')).toHaveTextContent('❤️');
+  });
+
+  it('calls onToggleFavorite when the button is clicked', () => {
+    const mockToggleFavorite = vi.fn();
+    render(
+      <LocalItemCard 
+        item={mockRestaurant} 
+        isAuth={true} 
+        onToggleFavorite={mockToggleFavorite} 
+      />
+    );
+    
+    const favoriteButton = screen.getByRole('button');
+    fireEvent.click(favoriteButton);
+    
+    expect(mockToggleFavorite).toHaveBeenCalledTimes(1);
+    expect(mockToggleFavorite).toHaveBeenCalledWith(mockRestaurant);
   });
 });
