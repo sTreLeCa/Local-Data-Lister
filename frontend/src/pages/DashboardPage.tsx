@@ -1,43 +1,68 @@
-// frontend/src/pages/DashboardPage.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { fetchPopularItems, PopularItem } from '../api/dashboardService';
 import { LocalItemCard } from '../components/LocalItemCard';
 import { useAuthStore } from '../store/authStore';
-import { fetchFavorites } from '../api/favoritesService'; // We need this to show correct favorite status
+import { fetchFavorites } from '../api/favoritesService';
+import { useRealtime, FavoriteUpdateData } from '../hooks/useRealtime';
 
 export const DashboardPage = () => {
     const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // We still need to know the user's favorites to display the hearts correctly.
     const { token, isAuthenticated } = useAuthStore();
     const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
-    // This is a great example of re-using logic. We fetch favorites here
-    // just like we did on the HomePage.
+    //The "smart" handler for WebSocket events ---
+    // useCallback ensures this function is stable and doesn't cause re-renders
+    const handleFavoriteUpdate = useCallback((data: FavoriteUpdateData) => {
+        setPopularItems(currentItems => {
+            let itemWasInList = false;
+
+            const updatedItems = currentItems.map(item => {
+                if (item.id === data.itemId) {
+                    itemWasInList = true;
+                    return {
+                        ...item,
+                        favoriteCount: data.action === 'added' 
+                            ? item.favoriteCount + 1 
+                            : Math.max(0, item.favoriteCount - 1) 
+                    };
+                }
+                return item;
+            });
+            
+            if (!itemWasInList) {
+                fetchPopularItems(10).then(setPopularItems);
+                return currentItems; 
+            }
+            return updatedItems.sort((a, b) => b.favoriteCount - a.favoriteCount);
+        });
+    }, []); // Empty dependency array = this function is created only once.
+
+    // Use our real-time hook and pass it the handler ---
+    useRealtime(handleFavoriteUpdate);
+
+    // This effect runs once on initial mount to get the data
+    useEffect(() => {
+        fetchPopularItems(10)
+            .then(setPopularItems)
+            .catch(err => setError(err.message))
+            .finally(() => setIsLoading(false));
+    }, []); 
+
+    // This effect gets the user's personal favorites for the heart icons
     useEffect(() => {
         if (isAuthenticated() && token) {
             fetchFavorites(token)
                 .then(favs => setFavoriteIds(new Set(favs.map(f => f.id))))
                 .catch(console.error);
+        } else {
+            setFavoriteIds(new Set());
         }
     }, [token, isAuthenticated]);
 
-    // Fetch the popular items data when the component mounts.
-    useEffect(() => {
-        fetchPopularItems(10) // Fetch the top 10 items
-            .then(data => {
-                setPopularItems(data);
-            })
-            .catch(err => {
-                setError(err.message);
-            })
-            .finally(() => {
-                setIsLoading(false);
-            });
-    }, []); // The empty dependency array means this runs only once.
-
+    // --- The rendering logic remains the same ---
     if (isLoading) {
         return <p>Loading most popular items...</p>;
     }
@@ -59,7 +84,6 @@ export const DashboardPage = () => {
                             </p>
                             <LocalItemCard 
                                 item={item}
-                                // We can't toggle favorites from this page yet, but we can show the status
                                 isAuth={isAuthenticated()}
                                 isFavorited={favoriteIds.has(item.id)}
                             />
