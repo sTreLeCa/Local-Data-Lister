@@ -47,12 +47,13 @@ router.get('/popular-items', async (req, res) => {
     // Finally, let's combine the item details with their favorite counts.
     const finalResult = items.map(item => {
       const countInfo = popularItemsWithCounts.find(p => p.localItemId === item.id);
+      const { locationJson, ...restOfItem } = item;
       return {
-        ...item,
-        // The frontend will love having this count!
-        favoriteCount: countInfo?._count.localItemId || 0,
-      };
-    }).sort((a, b) => b.favoriteCount - a.favoriteCount); // Re-sort to be safe.
+      ...restOfItem,
+      location: locationJson,
+      favoriteCount: countInfo?._count.localItemId || 0,
+   };
+}).sort((a, b) => b.favoriteCount - a.favoriteCount); // Re-sort to be safe.
 
     res.status(200).json(finalResult);
 

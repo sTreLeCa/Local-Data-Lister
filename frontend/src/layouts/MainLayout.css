@@ -1,0 +1,43 @@
+/* frontend/src/layouts/MainLayout.css */
+
+.main-nav {
+  display: flex;
+  justify-content: space-between; /* Pushes items to the ends */
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.main-nav a {
+  text-decoration: none;
+  color: #495057;
+  font-weight: bold;
+  margin-right: 20px; /* Adds space between links */
+}
+
+.main-nav a:hover {
+  color: #0056b3;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+}
+
+.user-info span {
+  margin-right: 15px;
+}
+
+.logout-button, .auth-form button {
+  padding: 8px 12px;
+  border: none;
+  background-color: #6f42c1;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.logout-button:hover, .auth-form button:hover {
+  background-color: #5a3d9a;
+}
