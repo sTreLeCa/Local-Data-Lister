@@ -4,6 +4,7 @@ import { LocalItemCard } from '../components/LocalItemCard';
 import { useAuthStore } from '../store/authStore';
 import { fetchFavorites } from '../api/favoritesService';
 import { useRealtime, FavoriteUpdateData } from '../hooks/useRealtime';
+import { Spinner } from '../components/Spinner/Spinner';
 
 export const DashboardPage = () => {
     const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
@@ -64,7 +65,7 @@ export const DashboardPage = () => {
 
     // --- The rendering logic remains the same ---
     if (isLoading) {
-        return <p>Loading most popular items...</p>;
+        return <Spinner />;
     }
 
     if (error) {

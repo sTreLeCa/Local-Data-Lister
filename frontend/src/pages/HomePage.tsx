@@ -4,6 +4,8 @@ import { LocalItemCard } from '../components/LocalItemCard';
 import { fetchLocalItems, fetchExternalItems } from '../api/localItemService';
 import { useAuthStore } from '../store/authStore';
 import { fetchFavorites, addFavorite, removeFavorite } from '../api/favoritesService';
+import { Spinner } from '../components/Spinner/Spinner';
+import toast from 'react-hot-toast';
 
 export function HomePage() {
   // --- State for Data & UI ---
@@ -73,6 +75,7 @@ export function HomePage() {
           newIds.delete(item.id);
           return newIds;
         });
+        toast.success(`${item.name} removed from favorites!`);
       } else {
         // --- Add to favorites ---
         await addFavorite(token, item);
@@ -81,8 +84,10 @@ export function HomePage() {
           newIds.add(item.id);
           return newIds;
         });
+        toast.success(`${item.name} added to favorites!`);
       }
     } catch (err: any) {
+      toast.error(`Error: ${err.message}`)
       alert(`Error updating favorites: ${err.message}`);
       console.error(err);
     }
@@ -143,7 +148,7 @@ export function HomePage() {
       
       <div className="items-list-container">
         {/* --- Unified Loading and Error States --- */}
-        {(isLoading || isExternalLoading) && <p>Loading items...</p>}
+        {(isLoading || isExternalLoading) && <Spinner />}
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
         
         {/* --- Unified Rendering Logic --- */}

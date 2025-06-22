@@ -1,37 +1,51 @@
 /* frontend/src/components/LocalItemCard.module.css */
 .card {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 16px;
-  margin: 12px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  background-color: #fff;
-  max-width: 600px; /* Example width, adjust as needed */
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-base);
+  padding: 1.5rem;
+  margin: 1rem;
+  box-shadow: var(--box-shadow-base);
+  width: 350px;
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition-base);
 }
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
 .name {
   margin-top: 0;
   margin-bottom: 8px;
-  font-size: 1.5em; 
-  color: #333;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
+
 .infoItem {
-  font-size: 0.95em;
-  color: #555;
-  margin: 4px 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin: 2px 0;
 }
+
 .description {
-  font-size: 0.9em;
-  color: #777;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
   margin-top: 10px;
+  flex-grow: 1; /* Pushes the map link to the bottom */
 }
 
 .mapLink {
   display: inline-block;
-  margin-top: 12px;
-  font-size: 0.9em;
-  font-weight: bold;
-  color: #007bff;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-primary);
   text-decoration: none;
+  align-self: flex-start;
 }
 
 .mapLink:hover {
@@ -39,11 +53,24 @@
 }
 
 .favoriteButton {
-  float: right;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   cursor: pointer;
   padding: 0;
   line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.favoriteButton:hover {
+  transform: scale(1.2);
+}
+
+/* We need to make the card a positioning context */
+.card {
+  position: relative;
+  /* ... other styles ... */
 }

@@ -2,6 +2,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import './MainLayout.css';
+import { Toaster } from 'react-hot-toast';
 
 export const MainLayout = () => {
   const { isAuthenticated, user, logout } = useAuthStore();
@@ -14,6 +15,7 @@ export const MainLayout = () => {
 
   return (
     <div className="App">
+      <Toaster position="top-center" />
       <header>
         <nav className="main-nav">
           <Link to="/">Home</Link>

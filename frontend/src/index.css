@@ -1,0 +1,92 @@
+/* frontend/src/index.css */
+
+/* 1. Import a modern, clean font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* 2. Define our Design System using CSS Variables */
+:root {
+  --font-family-base: 'Poppins', sans-serif;
+
+  --color-primary: #6f42c1; /* A nice purple */
+  --color-primary-dark: #5a3d9a;
+  
+  --color-background: #f4f7f6; /* A very light grey */
+  --color-surface: #ffffff; /* For cards and interactive surfaces */
+  
+  --color-text-primary: #212529;
+  --color-text-secondary: #6c757d;
+  
+  --color-border: #dee2e6;
+  --color-success: #198754;
+  --color-error: #dc3545;
+
+  --border-radius-base: 8px;
+  --box-shadow-base: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --transition-base: all 0.2s ease-in-out;
+}
+
+/* 3. Apply a CSS Reset and the base theme */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family-base);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+h1, h2, h3 {
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* 4. Style common elements like buttons and inputs */
+.search-container {
+  background-color: var(--color-surface);
+  padding: 1.5rem;
+  border-radius: var(--border-radius-base);
+  box-shadow: var(--box-shadow-base);
+  margin-bottom: 2rem;
+}
+
+.search-input {
+  padding: 10px 15px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-base);
+  font-size: 1rem;
+  margin-right: 10px;
+  min-width: 250px;
+}
+
+.search-button {
+  padding: 10px 20px;
+  border: none;
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: var(--border-radius-base);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-base);
+}
+
+.search-button:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-2px);
+}
+
+.search-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.items-list-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+}
