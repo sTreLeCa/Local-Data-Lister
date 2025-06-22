@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import type { LocalItem } from '@local-data/types';
 import styles from './LocalItemCard.module.css';
 
 interface LocalItemCardProps {
   item: LocalItem;
-   isAuth?: boolean;
+  isAuth?: boolean;
   isFavorited?: boolean;
   onToggleFavorite?: (item: LocalItem) => void;
 }
@@ -13,89 +13,99 @@ export const LocalItemCard: React.FC<LocalItemCardProps> = ({
   item, 
   isAuth, 
   isFavorited, 
-  onToggleFavorite }) => {
+  onToggleFavorite 
+}) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const { clientX, clientY, currentTarget } = e;
+    const { left, top, width, height } = currentTarget.getBoundingClientRect();
+    const x = clientX - left;
+    const y = clientY - top;
+    const mouseX = x / width;
+    const mouseY = y / height;
+    
+    const rotateX = (mouseY - 0.5) * -15; // Invert for natural feel
+    const rotateY = (mouseX - 0.5) * 20;
+
+    cardRef.current.style.setProperty('--rotateX', `${rotateX}deg`);
+    cardRef.current.style.setProperty('--rotateY', `${rotateY}deg`);
+    cardRef.current.style.setProperty('--mouse-x', `${x}px`);
+    cardRef.current.style.setProperty('--mouse-y', `${y}px`);
+  };
+
+  const handleMouseLeave = () => {
+    if (!cardRef.current) return;
+    cardRef.current.style.setProperty('--rotateX', '0deg');
+    cardRef.current.style.setProperty('--rotateY', '0deg');
+  };
+
   const formatLocationDisplay = (): string => {
-    const { street, city, state, zipcode } = item.location;
+    const { street, city, state } = item.location;
     const parts: string[] = [];
     if (street) parts.push(street);
     if (city) parts.push(city);
     if (state) parts.push(state);
-    if (zipcode) parts.push(zipcode);
-    let displayAddress = parts.join(', ');
-    if (!displayAddress && item.location.latitude && item.location.longitude) {
-      displayAddress = `Lat: ${item.location.latitude.toFixed(4)}, Lon: ${item.location.longitude.toFixed(4)}`;
-    }
-    return displayAddress;
+    return parts.join(', ');
   };
 
-  const displayLocationString = formatLocationDisplay();
-
   const renderTypeSpecificInfo = () => {
+    // ... (This function remains unchanged)
     switch (item.type) {
       case 'Restaurant':
         return (
-          <>
-            <p className={styles.infoItem}>Cuisine: {item.cuisineType}</p>
-            {item.priceRange && <p className={styles.infoItem}>Price Range: {item.priceRange}</p>}
-          </>
+          <p className={styles.infoItem}>
+            <strong>Cuisine:</strong> {item.cuisineType}
+            {item.priceRange && ` | ${item.priceRange}`}
+          </p>
         );
       case 'Event':
         return (
-          <>
-            <p className={styles.infoItem}>Event Type: {item.eventType}</p>
-            {item.startDate && (
-              <p className={styles.infoItem}>
-                Date: {new Date(item.startDate).toLocaleDateString()}
-              </p>
-            )}
-            {item.ticketPrice !== undefined && (
-              <p className={styles.infoItem}>
-                Price: {typeof item.ticketPrice === 'number' ? (item.ticketPrice === 0 ? "Free" : `$${item.ticketPrice.toFixed(2)}`) : item.ticketPrice}
-              </p>
-            )}
-          </>
+          <p className={styles.infoItem}>
+            <strong>Event:</strong> {item.eventType} on {new Date(item.startDate).toLocaleDateString()}
+          </p>
         );
       case 'Park':
         return (
-          <>
-            <p className={styles.infoItem}>Park Type: {item.parkType}</p>
-            {item.amenities && item.amenities.length > 0 && (
-              <p className={styles.infoItem}>Amenities: {item.amenities.join(', ')}</p>
-            )}
-          </>
+          <p className={styles.infoItem}>
+            <strong>Amenities:</strong> {item.amenities?.join(', ')}
+          </p>
         );
       default:
-        return null; // TypeScript ensures all cases are handled, no need for _exhaustiveCheck
+        return null;
     }
   };
 
   const mapUrl = `https://www.google.com/maps?q=${item.location.latitude},${item.location.longitude}`;
 
- return (
-    <div className={styles.card}>
-      {/* --- NEW FAVORITE BUTTON LOGIC --- */}
-      {isAuth && onToggleFavorite && (
-        <button
-          onClick={() => onToggleFavorite(item)}
-          className={styles.favoriteButton}
-          aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          {isFavorited ? '❤️' : '🤍'}
-        </button>
-      )}
-
-      <h3 className={styles.name}>{item.name}</h3>
-      {/* ... rest of the JSX is the same ... */}
-      <p className={styles.infoItem}>Type: {item.type}</p>
-      <p className={styles.description}>{item.description}</p>
-      {displayLocationString && <p className={styles.infoItem}>Location: {displayLocationString}</p>}
-      {item.rating !== undefined && <p className={styles.infoItem}>Rating: {item.rating}/5</p>}
-      {renderTypeSpecificInfo()}
-      {item.location.latitude && item.location.longitude && (
-        <a href={mapUrl} target="_blank" rel="noopener noreferrer" className={styles.mapLink}>
-          View on Map
-        </a>
-      )}
+  return (
+    <div 
+      className={styles.card} 
+      ref={cardRef} 
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div className={styles.cardContent}>
+        <h3 className={styles.name}>{item.name}</h3>
+        {item.rating && <p className={styles.infoItem}><strong>Rating:</strong> {item.rating}/5</p>}
+        {renderTypeSpecificInfo()}
+        <p className={styles.description}>{item.description}</p>
+        <div className={styles.cardActions}>
+          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className={styles.mapLink}>
+            View on Map ↗
+          </a>
+          {isAuth && onToggleFavorite && (
+            <button
+              onClick={() => onToggleFavorite(item)}
+              className={styles.favoriteButton}
+              aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              {isFavorited ? '❤️' : '🤍'}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

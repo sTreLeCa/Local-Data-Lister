@@ -1,0 +1,102 @@
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 200px); /* Adjust based on nav height */
+  padding: 2rem;
+}
+
+.auth-form {
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem;
+  
+  /* Glassmorphism for the form */
+  background: var(--color-surface-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  backdrop-filter: blur(var(--backdrop-blur-base));
+  -webkit-backdrop-filter: blur(var(--backdrop-blur-base));
+  box-shadow: var(--box-shadow-glow);
+
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.auth-form h2 {
+  font-size: 2rem;
+  text-align: center;
+  color: var(--color-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.auth-form .error-message {
+  background-color: rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--color-error);
+  color: var(--color-error);
+  padding: 0.75rem;
+  border-radius: var(--border-radius-sm);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+
+.auth-form input {
+  width: 100%;
+  padding: 12px 18px;
+  background-color: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  transition: var(--transition-base);
+  margin-bottom: 0; /* Override from global style */
+}
+
+.auth-form input::placeholder {
+  color: var(--color-text-dim);
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: var(--color-border-hover);
+  box-shadow: 0 0 10px var(--color-border-hover);
+}
+
+.auth-form button {
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  color: white;
+  border-radius: var(--border-radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-base);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.auth-form button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  filter: brightness(1.1);
+}
+
+
+.switch-auth-link {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.switch-auth-link a {
+  color: var(--color-secondary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.switch-auth-link a:hover {
+  text-decoration: underline;
+}
