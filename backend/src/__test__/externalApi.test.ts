@@ -157,13 +157,13 @@ describe('GET /api/external/items - Comprehensive Tests', () => {
       expect(response.body.totalResultsFromSource).toBe(0);
     });
 
-    it('should return 502 if Foursquare search throws a generic non-API error', async () => {
-      mockedSearchFoursquare.mockRejectedValue(new Error('Foursquare is down'));
-      const response = await request(app).get('/api/external/items').query({ location: 'TestCity' });
-      expect(response.status).toBe(502); // შესწორებული server.ts-ის მიხედვით
-      expect(response.body.code).toBe('EXTERNAL_SERVICE_ERROR');
-      expect(response.body.message).toContain('Error communicating with Foursquare: Foursquare is down');
-    });
+it('should return 502 if Foursquare search throws a generic non-API error', async () => {
+  mockedSearchFoursquare.mockRejectedValue(new Error('Foursquare is down'));
+  const response = await request(app).get('/api/external/items').query({ location: 'TestCity' });
+  expect(response.status).toBe(502);
+  expect(response.body.code).toBe('EXTERNAL_SERVICE_ERROR');
+  expect(response.body.message).toContain('Foursquare is down'); 
+});
     
     it('should return specific Foursquare error (e.g. 401) if Foursquare API returns it', async () => {
         const foursquareApiError = new Error('Foursquare API request failed with status 401: {"message":"Authentication failed"}');

@@ -1,7 +1,7 @@
 // backend/src/server.ts
 
 // --- Core Node.js and Express Imports ---
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs/promises';
@@ -211,18 +211,18 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('[API /api/external/items] Error occurred during Foursquare call or transformation:', error);
-    let statusCode = 502; // Default to Bad Gateway for external service errors
+    let statusCode = 502;
     let errorCode = 'EXTERNAL_SERVICE_ERROR';
     let errorMessage = 'An unexpected error occurred while contacting the external service.';
     let errorDetails: any;
+    const errorSource: string | undefined = 'foursquare';
 
     if (error instanceof Error) {
-        errorMessage = error.message;
         if (error.message.startsWith('Foursquare API request failed')) {
             errorCode = 'EXTERNAL_API_ERROR';
             const statusMatch = error.message.match(/status (\d+)/);
             if (statusMatch) statusCode = parseInt(statusMatch[1], 10);
-            if (statusCode < 400 || statusCode > 599) statusCode = 502; // Sanitize status code
+            if (statusCode < 400 || statusCode > 599) statusCode = 502;
 
             const jsonStartIndex = error.message.indexOf('{');
             if (jsonStartIndex !== -1) {
@@ -230,22 +230,23 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
                     const parsedDetails = JSON.parse(error.message.substring(jsonStartIndex)) as FoursquareErrorResponse;
                     errorMessage = `External API error: ${parsedDetails.message || 'Details unavailable'}`;
                     errorDetails = parsedDetails;
-                } catch (e) { /* Parsing failed, use raw message */ }
+                } catch (e) { errorMessage = error.message; }
+            } else {
+                errorMessage = error.message;
             }
+        } else {
+            // ეს არის ზოგადი შეცდომა, მაგ. 'Foursquare is down'
+            // აქ ვქმნით უფრო აღწერით შეტყობინებას
+            errorMessage = `Error communicating with Foursquare: ${error.message}`;
         }
     }
-    return res.status(statusCode).json({ message: errorMessage, code: errorCode, source: 'foursquare', details: errorDetails });
+    return res.status(statusCode).json({ message: errorMessage, code: errorCode, source: errorSource, details: errorDetails });
   }
 });
 
 // --- NEW API ROUTES ---
-// All requests to /api/auth/* will be handled by authRoutes
 app.use('/api/auth', authRoutes);
-
-// All requests to /api/me/favorites* will be handled by favoritesRoutes
 app.use('/api/me/favorites', favoritesRoutes);
-
-// All requests to /api/dashboard* will be handled by dashboardRoutes
 app.use('/api/dashboard', dashboardRoutes);
 
 // --- Development Test Route ---
@@ -266,7 +267,7 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-// --- 404 Handler (Catch-all for routes that don't exist) ---
+// --- 404 Handler ---
 app.use('*', (req: Request, res: Response) => {
   console.log(`[API] 404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
@@ -274,6 +275,15 @@ app.use('*', (req: Request, res: Response) => {
     code: 'ROUTE_NOT_FOUND',
     path: req.originalUrl
   });
+});
+
+// --- General Error Handler ---
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error('[FATAL ERROR]', err.stack);
+    res.status(500).json({
+      message: 'An unexpected internal server error occurred.',
+      code: 'INTERNAL_SERVER_ERROR'
+    });
 });
 
 export default app;
