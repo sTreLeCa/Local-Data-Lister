@@ -1,5 +1,6 @@
 // backend/jest.config.js
 module.exports = {
+  resetMocks: true,
   preset: 'ts-jest', 
   testEnvironment: 'node', 
   
