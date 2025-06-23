@@ -11,12 +11,14 @@ import { LocalItem } from '@local-data/types';
 import { searchFoursquare, FoursquareSearchParams, FoursquareErrorResponse } from './services/foursquareService';
 import { transformFoursquareResponseToLocalItems } from './services/dataTransformer';
 import * as cacheService from './services/cacheService';
+import { transformPrismaItemToFrontend } from './utils/dataTransformer'; // 👈 IMPORT UTILITY
 
 // --- Route Handlers ---
 import authRoutes from './routes/auth';
 import favoritesRoutes from './routes/favorites';
 import dashboardRoutes from './routes/dashboard';
-import itemsRoutes from './routes/items';
+import itemsRoutes from './routes/items'; // ✅ CONFIRMED: Import is present
+
 const app = express();
 
 app.use(cors());
@@ -67,7 +69,7 @@ app.get('/api/local-items', async (req: Request, res: Response) => {
         code: 'EMPTY_DATA_FILE'
       });
     }
-    let items: LocalItem[];
+    let items: any[];
     try {
       items = JSON.parse(fileContent);
     } catch (parseError) {
@@ -81,8 +83,12 @@ app.get('/api/local-items', async (req: Request, res: Response) => {
       console.error("CRITICAL BACKEND ERROR: local-items.json did not parse to an array. Parsed value:", items);
       return res.status(500).json({ message: "Data source is corrupt.", code: 'INVALID_DATA_FORMAT' });
     }
-    console.log(`[API /api/local-items] Successfully returned ${items.length} local items`);
-    res.status(200).json(items);
+    
+    // 👇 USE THE NEW TRANSFORMER
+    const transformedItems = items.map(transformPrismaItemToFrontend);
+
+    console.log(`[API /api/local-items] Successfully returned ${transformedItems.length} local items`);
+    res.status(200).json(transformedItems); // Send the transformed items
   } catch (error) {
     console.error('[API /api/local-items] Unexpected error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -245,10 +251,11 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
 });
 
 // --- NEW API ROUTES ---
+// ✅ CRITICAL: Route order matters! These routes must come BEFORE the 404 handler
 app.use('/api/auth', authRoutes);
 app.use('/api/me/favorites', favoritesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/items', itemsRoutes);
+app.use('/api/items', itemsRoutes); // ✅ CONFIRMED: This line is present and in correct order
 
 // --- Development Test Route ---
 if (process.env.NODE_ENV === 'development') {
@@ -269,6 +276,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // --- 404 Handler ---
+// ✅ IMPORTANT: This MUST come AFTER all your other routes
 app.use('*', (req: Request, res: Response) => {
   console.log(`[API] 404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({

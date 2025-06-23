@@ -4,6 +4,7 @@ import prisma from '../lib/prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth'; // Import our authentication "Guard"
 import type { LocalItem } from '@local-data/types';
 import { getIO } from '../socketManager'; // Import the function to get our Socket.IO instance
+import { transformPrismaItemToFrontend } from '../utils/dataTransformer'; // 👈 IMPORT UTILITY
 
 const router = express.Router();
 
@@ -17,35 +18,28 @@ router.use(authMiddleware);
  * @access  Private
  */
 router.get('/', async (req: AuthRequest, res) => {
-  // We can safely use `req.user` because the `authMiddleware` guarantees it exists.
-  const userId = req.user!.id; 
+    const userId = req.user!.id;
 
-  try {
-    // Fetch all favorites from the database for this specific user.
-    const userFavorites = await prisma.userFavorite.findMany({
-      where: { userId: userId },
-      // `include` tells Prisma to also fetch the related `LocalItem` details for each favorite.
-      include: { localItem: true },
-      // Order the results by when they were favorited, newest first.
-      orderBy: { favoritedAt: 'desc' }
-    });
+    try {
+        const userFavorites = await prisma.userFavorite.findMany({
+            where: { userId },
+            include: { localItem: true }, // Use include, it's simpler
+            orderBy: { favoritedAt: 'desc' }
+        });
 
-    // The database returns a list of `UserFavorite` objects, which include the `localItem`.
-    // We only want to send the `localItem` part to the frontend.
-    // Also, we transform the `locationJson` field back into a `location` field.
-    const items = userFavorites.map(fav => {
-      const { locationJson, ...restOfItem } = fav.localItem;
-      return {
-          ...restOfItem, 
-          location: locationJson
-      };
-    });
+        const items = userFavorites
+            .filter(fav => fav.localItem) // Filter out broken relations
+            .map(fav => transformPrismaItemToFrontend(fav.localItem)); // 👈 USE THE UTILITY
 
-    res.status(200).json(items);
-  } catch (error) {
-    console.error('Error fetching favorites:', error);
-    res.status(500).json({ message: 'Could not retrieve your favorites.' });
-  }
+        res.status(200).json(items);
+
+    } catch (error) {
+        console.error('Error fetching favorites:', error);
+        if (error instanceof Error) {
+            console.error(error.stack);
+        }
+        res.status(500).json({ message: 'Could not retrieve your favorites.' });
+    }
 });
 
 /**
