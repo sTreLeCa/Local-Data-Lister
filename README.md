@@ -1,73 +1,119 @@
-# Local Information Viewer - Frontend
+# Local Data Lister
 
-This directory contains the frontend application for the Local Information Viewer project. It is a modern web application built with React, Vite, and TypeScript.
+**A full-stack web application designed to help users discover, save, and track interesting local places. This project was built as a final exam submission, demonstrating a comprehensive understanding of modern web development principles, from backend architecture to a dynamic, real-time frontend.**
 
-## Overview
+This monorepo contains the complete source code for the application, including a React frontend, a Node.js/Express backend, and a shared TypeScript types package.
 
-The frontend is responsible for rendering the user interface, fetching data from the backend API, and handling all user interactions.
 
-**Key Features:**
-- Displays a list of local items (restaurants, parks, events) in a card format.
-- Provides client-side filtering for the initial list of simulated data.
-- Includes a search interface to query for real-world data from the backend's external API endpoint.
-- Built with a mocked service layer to allow for independent development while the backend API is in progress.
+*(Recommendation: Replace this placeholder link with a real screenshot of your application's home page!)*
+
+## ✨ Key Features
+
+This project is more than just a simple data viewer; it's a complete ecosystem with a rich feature set:
+
+*   **Full-Stack Architecture:** A robust **Node.js/Express backend** serves a modern **React/Vite frontend**, following best practices for separation of concerns.
+*   **Real-Time Dashboard:** The "Most Popular Places" dashboard updates **live across all connected clients** using **WebSockets (Socket.io)** as users favorite and un-favorite items.
+*   **Secure Authentication:** End-to-end user authentication flow with **JWT (JSON Web Tokens)**, including registration, login, and protected routes for personalized content.
+*   **Third-Party API Integration:** Fetches real-world data from the **Foursquare Places API**, transforming and displaying it seamlessly alongside local data.
+*   **Performance-Optimized Backend:** Implements a **server-side cache** to reduce redundant API calls to Foursquare, improving response times and respecting external rate limits.
+*   **Relational Database:** Uses a **PostgreSQL** database with **Prisma ORM** for type-safe database queries, clear schema definitions, and easy migrations.
+*   **Comprehensive Testing:** The codebase includes both backend (Jest, Supertest) and frontend (Vitest, React Testing Library) tests to ensure reliability.
+
+## 🛠️ Tech Stack
+
+| Area       | Technology                                                               |
+| :--------- | :----------------------------------------------------------------------- |
+| **Frontend** | React, Vite, TypeScript, `react-router-dom`, Zustand, `socket.io-client` |
+| **Backend**  | Node.js, Express.js, TypeScript, Prisma, PostgreSQL, `socket.io`        |
+| **Database**   | PostgreSQL                                                               |
+| **Testing**  | Jest, Supertest (Backend); Vitest, React Testing Library (Frontend)      |
 
 ---
 
-## Prerequisites
+## 🚀 Getting Started: Local Development Setup
 
-- [Node.js](https://nodejs.org/) (version 18.x or later recommended)
-- `npm` (usually included with Node.js)
+Follow these instructions to get the project running on your local machine.
 
----
+**Prerequisites:**
+*   [Node.js](https://nodejs.org/) (v18 or later is recommended)
+*   [npm](https://www.npmjs.com/) (usually included with Node.js)
+*   A running [PostgreSQL](https://www.postgresql.org/download/) database instance.
 
-## Setup and Installation
+**Instructions:**
 
-1.  Navigate to the root directory of the project.
-2.  Install all dependencies for the entire project (including the frontend):
+1.  **Clone the Repository**
     ```bash
-    npm run install:all
+    git clone https://github.com/sTreLeCa/Local-Data-Lister.git
+    cd Local-Data-Lister
     ```
-3.  If you only need to install frontend dependencies, navigate to this `frontend` directory and run:
+
+2.  **Install All Dependencies**
+    From the root directory, this command will install dependencies for the root, backend, and frontend packages.
     ```bash
     npm install
     ```
 
+3.  **Set Up the Backend Environment**
+    *   Navigate to the `backend` directory: `cd backend`
+    *   Create a new file named `.env`.
+    *   Copy the following configuration into your new `.env` file, replacing the placeholder values with your own.
+
+    ```env
+    # The port your backend server will run on
+    PORT=4000
+
+    # Your PostgreSQL connection string.
+    # Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
+    DATABASE_URL="postgresql://postgres:mysecretpassword@localhost:5432/mydb?schema=public"
+
+    # A strong, secret key for signing JSON Web Tokens (JWT)
+    JWT_SECRET="a-very-strong-and-secret-key-that-is-at-least-32-characters-long"
+
+    # Your personal API Key for the Foursquare Places API
+    FOURSQUARE_API_KEY="your_foursquare_api_key_here"
+
+    # The URL of your running frontend application (for Socket.IO CORS)
+    FRONTEND_URL="http://localhost:5173"
+    ```
+    *   Return to the root directory: `cd ..`
+
+4.  **Set Up the Database**
+    Run this command from the root directory to apply the database schema from `backend/prisma/schema.prisma` to your PostgreSQL database.
+    ```bash
+    npx prisma migrate dev --name init --prefix backend
+    ```
+
+5.  **(Optional but Recommended) Seed the Database**
+    To populate the application with sample users and favorites, run the seed script. This makes the dashboard and other features come alive instantly.
+    ```bash
+    npx prisma db seed --prefix backend
+    ```
+
+6.  **Run the Application**
+    From the **root directory**, this command uses `concurrently` to start both the backend and frontend development servers at the same time.
+    ```bash
+    npm run dev
+    ```
+
+**You're all set!**
+*   🎉 **Frontend is available at: `http://localhost:5173`**
+*   🌐 **Backend API is running at: `http://localhost:4000`**
+
 ---
 
-## Available Scripts
+## 🏛️ Project Structure
 
-From within the `frontend` directory, you can run the following commands:
+The project is organized as a monorepo with three main packages, allowing for clear separation and code sharing:
 
-### `npm run dev`
-
-Runs the app in development mode using Vite. Open [http://localhost:5173](http://localhost:5173) to view it in your browser. The page will reload when you make changes.
-
-The development server is configured to proxy API requests starting with `/api` to the backend server running on `http://localhost:4000`.
-
-### `npm run test`
-
-Launches the Vitest test runner in interactive watch mode. This is the primary way to run the automated tests for the components and application logic.
-
-### `npm run build`
-
-Builds the app for production to the `dist` folder. It correctly bundles React in production mode and optimizes the build for the best performance.
-
-### `npm run lint`
-
-Runs the ESLint static analysis tool to find potential issues in the codebase.
+*   `/frontend`: A React application built with Vite. Handles all UI and user interaction.
+*   `/backend`: A Node.js API server built with Express. Manages business logic, database interaction, and authentication.
+*   `/packages/types`: A shared TypeScript package for data structures (like `LocalItem`) used by both the frontend and backend, ensuring type safety across the entire stack.
 
 ---
 
-## Project Structure
+## 🤝 Authors
 
-A brief overview of the key files and directories:
-
--   `public/`: Contains static assets.
--   `src/`: The main application source code.
-    -   `components/`: Contains reusable React components, such as `LocalItemCard.tsx`.
-    -   `services/`: Handles all communication with the backend API.
-    -   `App.tsx`: The main application component that holds state and orchestrates the UI.
-    -   `main.tsx`: The entry point of the React application.
--   `vite.config.ts`: Configuration file for the Vite build tool and dev server.
--   `tsconfig.json`: TypeScript configuration for the project.
+This project was developed by:
+*   Aleksandre 
+*   Giorgi
+*   Nikoloz
