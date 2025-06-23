@@ -6,5 +6,5 @@ module.exports = {
   moduleNameMapper: {
     '^@local-data/types$': '<rootDir>/../packages/types/src/index.ts',
   },
-  resetMocks: true, // ეს დავტოვოთ
+  resetMocks: true, 
 };
