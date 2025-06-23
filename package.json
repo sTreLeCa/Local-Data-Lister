@@ -5,7 +5,7 @@
   "description": "A basic full-stack application for a final project.",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+      "dev": "concurrently \"npm run dev --prefix backend\" \"wait-on http://localhost:4000 && npm run dev --prefix frontend\"",
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -23,6 +23,7 @@
   "devDependencies": {
     "concurrently": "^8.2.2",
     "jest-mock-extended": "^4.0.0",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "wait-on": "^8.0.3"
   }
 }
