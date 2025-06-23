@@ -16,7 +16,7 @@ import * as cacheService from './services/cacheService';
 import authRoutes from './routes/auth';
 import favoritesRoutes from './routes/favorites';
 import dashboardRoutes from './routes/dashboard';
-
+import itemsRoutes from './routes/items';
 const app = express();
 
 app.use(cors());
@@ -248,6 +248,7 @@ app.get('/api/external/items', async (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/me/favorites', favoritesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/items', itemsRoutes);
 
 // --- Development Test Route ---
 if (process.env.NODE_ENV === 'development') {

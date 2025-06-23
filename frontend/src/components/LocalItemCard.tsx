@@ -1,4 +1,7 @@
+// frontend/src/components/LocalItemCard.tsx
+
 import React, { useRef } from 'react';
+import { Link } from 'react-router-dom'; // 👈 IMPORT LINK
 import type { LocalItem } from '@local-data/types';
 import styles from './LocalItemCard.module.css';
 
@@ -51,7 +54,6 @@ export const LocalItemCard: React.FC<LocalItemCardProps> = ({
   };
 
   const renderTypeSpecificInfo = () => {
-    // ... (This function remains unchanged)
     switch (item.type) {
       case 'Restaurant':
         return (
@@ -79,33 +81,40 @@ export const LocalItemCard: React.FC<LocalItemCardProps> = ({
 
   const mapUrl = `https://www.google.com/maps?q=${item.location.latitude},${item.location.longitude}`;
 
+  // 👇 RENDER THE ENTIRE CARD AS A LINK, BUT STOP FAVORITE BUTTON CLICKS FROM NAVIGATING
   return (
-    <div 
-      className={styles.card} 
-      ref={cardRef} 
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div className={styles.cardContent}>
-        <h3 className={styles.name}>{item.name}</h3>
-        {item.rating && <p className={styles.infoItem}><strong>Rating:</strong> {item.rating}/5</p>}
-        {renderTypeSpecificInfo()}
-        <p className={styles.description}>{item.description}</p>
-        <div className={styles.cardActions}>
-          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className={styles.mapLink}>
-            View on Map ↗
-          </a>
-          {isAuth && onToggleFavorite && (
-            <button
-              onClick={() => onToggleFavorite(item)}
-              className={styles.favoriteButton}
-              aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-            >
-              {isFavorited ? '❤️' : '🤍'}
-            </button>
-          )}
+    <Link to={`/item/${item.id}`} className={styles.cardLink}>
+      <div 
+        className={styles.card} 
+        ref={cardRef} 
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div className={styles.cardContent}>
+          <h3 className={styles.name}>{item.name}</h3>
+          {item.rating && <p className={styles.infoItem}><strong>Rating:</strong> {item.rating}/5</p>}
+          {renderTypeSpecificInfo()}
+          <p className={styles.description}>{item.description}</p>
+          <div className={styles.cardActions}>
+            <span className={styles.mapLink}>
+              View Details ↗
+            </span>
+            {isAuth && onToggleFavorite && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault(); // Prevent the Link from navigating
+                  e.stopPropagation(); // Stop the event from bubbling up
+                  onToggleFavorite(item);
+                }}
+                className={styles.favoriteButton}
+                aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                {isFavorited ? '❤️' : '🤍'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 };

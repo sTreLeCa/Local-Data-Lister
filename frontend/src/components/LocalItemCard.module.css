@@ -124,3 +124,8 @@
   transform: scale(1.2);
   filter: grayscale(0%);
 }
+
+.cardLink {
+  text-decoration: none; /* Removes underline from the link wrapper */
+  color: inherit;
+}
