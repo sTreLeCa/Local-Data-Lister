@@ -4,6 +4,8 @@ import { LocalItemCard } from '../components/LocalItemCard';
 import { fetchLocalItems, fetchExternalItems } from '../api/localItemService';
 import { useAuthStore } from '../store/authStore';
 import { fetchFavorites, addFavorite, removeFavorite } from '../api/favoritesService';
+import { Spinner } from '../components/Spinner/Spinner';
+import toast from 'react-hot-toast';
 
 export function HomePage() {
   // --- State for Data & UI ---
@@ -35,12 +37,10 @@ export function HomePage() {
     if (isAuthenticated() && token) {
       fetchFavorites(token)
         .then(favs => {
-          // Storing only IDs in a Set is highly efficient for checking if an item is favorited
           setFavoriteIds(new Set(favs.map(fav => fav.id)));
         })
         .catch(err => console.error("Could not fetch favorites:", err));
     } else {
-      // Clear favorites when the user logs out
       setFavoriteIds(new Set());
     }
   }, [token, isAuthenticated]);
@@ -58,108 +58,145 @@ export function HomePage() {
   // Handler for toggling an item's favorite status
   const handleToggleFavorite = async (item: LocalItem) => {
     if (!isAuthenticated() || !token) {
-      alert("Please log in to add items to your favorites.");
+      toast.error("Please log in to manage favorites.");
       return;
     }
 
     const isCurrentlyFavorited = favoriteIds.has(item.id);
+    setFavoriteIds(prevIds => {
+      const newIds = new Set(prevIds);
+      if (isCurrentlyFavorited) newIds.delete(item.id);
+      else newIds.add(item.id);
+      return newIds;
+    });
 
     try {
       if (isCurrentlyFavorited) {
-        // --- Remove from favorites ---
         await removeFavorite(token, item.id);
-        setFavoriteIds(prevIds => {
-          const newIds = new Set(prevIds);
-          newIds.delete(item.id);
-          return newIds;
-        });
+        toast.success(`${item.name} removed from favorites!`);
       } else {
-        // --- Add to favorites ---
         await addFavorite(token, item);
-        setFavoriteIds(prevIds => {
-          const newIds = new Set(prevIds);
-          newIds.add(item.id);
-          return newIds;
-        });
+        toast.success(`${item.name} added to favorites!`);
       }
     } catch (err: any) {
-      alert(`Error updating favorites: ${err.message}`);
-      console.error(err);
+      toast.error(`Error: ${err.message}`);
+      setFavoriteIds(prevIds => {
+        const newIds = new Set(prevIds);
+        if (isCurrentlyFavorited) newIds.add(item.id);
+        else newIds.delete(item.id);
+        return newIds;
+      });
     }
   };
 
-  // Memoized logic to filter the local items list based on the filter input
-  const filteredLocalItems = useMemo(() => {
-    if (!filterTerm.trim()) return localItems;
-    const lowerSearchTerm = filterTerm.toLowerCase();
-    return localItems.filter(item => 
-      item.name.toLowerCase().includes(lowerSearchTerm) || 
-      item.description.toLowerCase().includes(lowerSearchTerm)
-    );
-  }, [localItems, filterTerm]);
+  const itemsToDisplay = useMemo(() => {
+    const sourceItems = externalItems.length > 0 ? externalItems : localItems;
+    if (!filterTerm.trim()) {
+      return sourceItems;
+    }
 
-  // Combine external results and filtered local results into a single list for rendering
-  const itemsToDisplay = externalItems.length > 0 ? externalItems : filteredLocalItems;
+    const lowerSearchTerm = filterTerm.toLowerCase();
+    
+    return sourceItems.filter(item => {
+      // Create a single searchable string from all relevant fields for each item
+      const searchableContent = [
+        item.name,
+        item.description,
+        item.location.city,
+        item.location.state,
+        item.location.street,
+        item.rating?.toString(),
+      ];
+
+      // Add type-specific fields to the searchable content
+      switch (item.type) {
+        case 'Restaurant':
+          searchableContent.push(item.cuisineType);
+          searchableContent.push(item.priceRange);
+          break;
+        case 'Park':
+          searchableContent.push(item.parkType);
+          if (item.amenities) {
+            searchableContent.push(...item.amenities);
+          }
+          break;
+        case 'Event':
+          searchableContent.push(item.eventType);
+          searchableContent.push(item.organizer);
+          break;
+      }
+      
+      // Filter out any null/undefined values, join, and check for the search term
+      return searchableContent
+        .filter(Boolean) // Removes null, undefined, and empty strings
+        .join(' ')
+        .toLowerCase()
+        .includes(lowerSearchTerm);
+    });
+  }, [externalItems, localItems, filterTerm]);
 
   return (
     <>
-      <div className="search-container">
-        <h2>Search Real-World Data (via Foursquare API)</h2>
-        <input
-          type="text"
-          placeholder="Enter a location (e.g., Chicago)"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          className="search-input"
-        />
-        <input
-          type="text"
-          placeholder="Enter a search term (e.g., park, pizza)"
-          value={externalTerm}
-          onChange={(e) => setExternalTerm(e.target.value)}
-          className="search-input"
-        />
-        <button
-          onClick={handleExternalSearch}
-          disabled={isExternalLoading || !location.trim()}
-          className="search-button"
-        >
-          {isExternalLoading ? 'Searching...' : 'Search External Data'}
-        </button>
-      </div>
+      <div className="content-wrapper">
+        <div className="search-panel">
+          <h2>Search Real-World Data</h2>
+          <p>Find places anywhere using the Foursquare API.</p>
+          <input
+            type="text"
+            placeholder="Enter a location (e.g., Chicago)"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="search-input"
+          />
+          <input
+            type="text"
+            placeholder="Find (e.g., park, pizza)"
+            value={externalTerm}
+            onChange={(e) => setExternalTerm(e.target.value)}
+            className="search-input"
+          />
+          <button
+            onClick={handleExternalSearch}
+            disabled={isExternalLoading || !location.trim()}
+            className="search-button"
+          >
+            {isExternalLoading ? 'Searching...' : 'Search'}
+          </button>
+        </div>
 
-      <hr style={{ margin: '40px 0' }} />
-
-      <div className="search-container">
-        <h2>Filter Local Data</h2>
-        <input
-          type="text"
-          placeholder="Filter the list below..."
-          value={filterTerm}
-          onChange={(e) => setFilterTerm(e.target.value)}
-          className="search-input"
-        />
+        <div className="filter-panel">
+          <h2>Filter Current Results</h2>
+          <input
+            type="text"
+            placeholder="Filter by name, cuisine, amenities..."
+            value={filterTerm}
+            onChange={(e) => setFilterTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
       </div>
       
       <div className="items-list-container">
-        {/* --- Unified Loading and Error States --- */}
-        {(isLoading || isExternalLoading) && <p>Loading items...</p>}
-        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+        {(isLoading || isExternalLoading) && <Spinner />}
+        {error && <p className="error-message">Error: {error}</p>}
         
-        {/* --- Unified Rendering Logic --- */}
-        {!isLoading && !isExternalLoading && itemsToDisplay.map(item => (
-          <LocalItemCard 
+        {!isLoading && !isExternalLoading && itemsToDisplay.map((item, index) => (
+          <div 
             key={item.id} 
-            item={item}
-            isAuth={isAuthenticated()}
-            isFavorited={favoriteIds.has(item.id)}
-            onToggleFavorite={handleToggleFavorite}
-          />
+            className="fade-in-item" 
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
+            <LocalItemCard 
+              item={item}
+              isAuth={isAuthenticated()}
+              isFavorited={favoriteIds.has(item.id)}
+              onToggleFavorite={handleToggleFavorite}
+            />
+          </div>
         ))}
 
-        {/* --- Message for No Results --- */}
         {!isLoading && !isExternalLoading && itemsToDisplay.length === 0 && !error && (
-            <p>No items to display. Try a new search or clear your filter.</p>
+            <p className="empty-state-message">No items to display. Try a new search or clear your filter.</p>
         )}
       </div>
     </>

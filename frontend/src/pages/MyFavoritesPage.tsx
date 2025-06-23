@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { fetchFavorites, removeFavorite  } from '../api/favoritesService';
 import { LocalItemCard } from '../components/LocalItemCard';
 import type { LocalItem } from '@local-data/types';
+import { Spinner } from '../components/Spinner/Spinner';
 
 export const MyFavoritesPage = () => {
     const [favorites, setFavorites] = useState<LocalItem[]>([]);
@@ -53,7 +54,7 @@ export const MyFavoritesPage = () => {
     }
 
     if (isLoading) {
-        return <p>Loading your favorites...</p>;
+        return <Spinner/>;
     }
 
     if (error) {
