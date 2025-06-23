@@ -9,7 +9,7 @@ import { initSocket, getIO } from '../socketManager';
 import type { LocalItem } from '@local-data/types';
 import { describe, it, expect, jest, afterAll, beforeAll, beforeEach, afterEach } from '@jest/globals';
 
-// --- მოქირავების სექცია ---
+
 jest.mock('../lib/prisma', () => ({
   userFavorite: { create: jest.fn(), delete: jest.fn() },
   localItem: { upsert: jest.fn() },
@@ -21,9 +21,7 @@ jest.mock('../middleware/auth', () => ({
     next();
   },
 }));
-// socketManager-ს აღარ ვმოქირავებთ, რადგან რეალურს ვტესტავთ
-// jest.mock('../socketManager');
-// --- მოქირავების დასასრული ---
+
 
 const mockedPrisma = prisma as jest.Mocked<typeof prisma>;
 
@@ -37,7 +35,7 @@ describe('WebSocket Event Emission on Favorites Change', () => {
     httpServer = http.createServer(app);
     io = initSocket(httpServer);
     
-    // ვამატებთ middleware-ს, რომელიც io-ს request-ს გადასცემს
+    
     app.use((req, res, next) => {
       (req as any).io = io;
       next();
@@ -83,7 +81,7 @@ describe('WebSocket Event Emission on Favorites Change', () => {
         expect(data).toEqual(expectedEventData);
         done();
       } catch (error) {
-        done(error as Error); // TypeScript-ს ვუთხრათ, რომ error არის Error ტიპის
+        done(error as Error); 
       }
     });
 
@@ -107,7 +105,7 @@ describe('WebSocket Event Emission on Favorites Change', () => {
             expect(data).toEqual(expectedEventData);
             done();
         } catch (error) {
-            done(error as Error); // TypeScript-ს ვუთხრათ, რომ error არის Error ტიპის
+            done(error as Error); 
         }
     });
 
