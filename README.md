@@ -4,9 +4,6 @@
 
 This monorepo contains the complete source code for the application, including a React frontend, a Node.js/Express backend, and a shared TypeScript types package.
 
-
-*(Recommendation: Replace this placeholder link with a real screenshot of your application's home page!)*
-
 ## ✨ Key Features
 
 This project is more than just a simple data viewer; it's a complete ecosystem with a rich feature set:
@@ -116,4 +113,5 @@ The project is organized as a monorepo with three main packages, allowing for cl
 This project was developed by:
 *   Aleksandre 
 *   Giorgi
+
 *   Nikoloz
